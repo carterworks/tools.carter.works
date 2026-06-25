@@ -1,0 +1,1673 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#fdf6e3">
+    <meta name="color-scheme" content="light">
+    <link rel="canonical" href="https://tools.carter.works/gamebook-viewer/">
+    <link rel="icon" href="https://carter.works/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400..700&family=Geist+Mono:wght@100..900&family=Libre+Caslon+Display&display=swap">
+    <title>Gamebook Viewer | tools.carter.works</title>
+    <meta name="description" property="og:description" content="Map branching choice books and compare recorded routes against the full story graph.">
+    <meta property="og:title" content="Gamebook Viewer">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tools.carter.works/gamebook-viewer/">
+    <style>
+      :root {
+        --space-xs: 0.5rem;
+        --space-sm: 0.75rem;
+        --space-md: 1rem;
+        --space-lg: 1.5rem;
+        --space-xl: 2rem;
+        --color-paper: oklch(0.985 0.008 85);
+        --color-panel: oklch(0.993 0.004 85);
+        --color-panel-muted: oklch(0.973 0.008 85);
+        --color-ink: oklch(0.26 0.018 248);
+        --color-ink-soft: oklch(0.43 0.012 248);
+        --color-line: oklch(0.86 0.01 85);
+        --color-line-strong: oklch(0.77 0.014 85);
+        --color-accent: oklch(0.56 0.11 250);
+        --color-accent-soft: oklch(0.95 0.03 250);
+        --font-sans: "Familjen Grotesk", "Segoe UI", sans-serif;
+        --font-serif: "Libre Caslon Display", "Iowan Old Style", serif;
+        --font-mono: "Geist Mono", ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+      }
+
+      * { box-sizing: border-box; }
+
+      html { color-scheme: light; background: var(--color-paper); }
+
+      body {
+        margin: 0;
+        color: var(--color-ink);
+        background: var(--color-paper);
+        font-family: var(--font-sans);
+        text-rendering: optimizeLegibility;
+      }
+
+      a, a:visited { color: inherit; }
+      h1, h2, h3, h4, p { margin: 0; }
+      code, textarea, select, button { font: inherit; }
+
+      .stack > * + * { margin-block-start: var(--space-md); }
+
+      .page {
+        width: min(1240px, calc(100vw - 2rem));
+        margin-inline: auto;
+        padding: var(--space-md) 0 var(--space-xl);
+      }
+
+      .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.95rem;
+      }
+
+      .hero {
+        padding: clamp(1.5rem, 2.8vw, 2.5rem);
+        border: 1px solid var(--color-line);
+        border-radius: 1.75rem;
+        background: var(--color-panel);
+        box-shadow: 0 22px 60px rgb(53 44 32 / 0.07);
+      }
+
+      .hero-copy { max-width: 65ch; }
+
+      .hero h1 {
+        font-family: var(--font-serif);
+        font-size: clamp(2rem, 4vw, 3.4rem);
+        font-weight: 400;
+        line-height: 0.96;
+        letter-spacing: -0.03em;
+      }
+
+      .hero p, .section-copy, .legend-note {
+        line-height: 1.6;
+        color: var(--color-ink-soft);
+        font-size: 0.95rem;
+      }
+
+      .gamebook-viewer {
+        display: grid;
+        grid-template-columns: minmax(20rem, 24rem) minmax(0, 1fr);
+        gap: var(--space-lg);
+        align-items: start;
+      }
+
+      .panel {
+        padding: var(--space-lg);
+        border: 1px solid var(--color-line);
+        border-radius: 1.5rem;
+        background: rgb(255 255 255 / 0.82);
+        box-shadow: 0 18px 40px rgb(53 44 32 / 0.05);
+      }
+
+      .controls {
+        position: sticky;
+        top: var(--space-md);
+      }
+
+      .section-title {
+        font-size: 0.8rem;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .preset-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-sm);
+        align-items: end;
+      }
+
+      .preset-picker { flex: 1 1 16rem; }
+
+      label { display: grid; gap: var(--space-xs); }
+
+      .field-label-text {
+        color: var(--color-ink-soft);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      textarea, select {
+        width: 100%;
+        border: 1px solid var(--color-line-strong);
+        border-radius: 0.9rem;
+        color: var(--color-ink);
+        background: white;
+      }
+
+      textarea {
+        min-height: 24rem;
+        padding: var(--space-md);
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        line-height: 1.45;
+        resize: vertical;
+      }
+
+      .paths-textarea { min-height: 9rem; }
+      select { padding: 0.7rem 0.8rem; }
+
+      button {
+        border: 1px solid color-mix(in oklch, var(--color-accent) 45%, black);
+        border-radius: 999px;
+        padding: 0.68rem 0.95rem;
+        color: white;
+        background: var(--color-accent);
+        cursor: pointer;
+      }
+
+      button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+      .mini-example {
+        padding: var(--space-sm);
+        border-radius: 0.9rem;
+        color: var(--color-ink-soft);
+        background: var(--color-panel-muted);
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        line-height: 1.45;
+      }
+
+      .viewer-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: end;
+        justify-content: space-between;
+        gap: var(--space-md);
+        padding-bottom: var(--space-md);
+        border-bottom: 1px solid var(--color-line);
+      }
+
+      .head-actions {
+        display: grid;
+        gap: var(--space-xs);
+        justify-items: end;
+      }
+
+      .summary-row, .path-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-sm);
+      }
+
+      .pill, .path-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 999px;
+        padding: 0.35rem 0.6rem;
+        background: var(--color-panel-muted);
+        font-size: 0.78rem;
+      }
+
+      .pill-accent { background: var(--color-accent-soft); }
+      .pill-warning { background: oklch(0.95 0.06 55); }
+      .swatch { width: 0.75rem; height: 0.75rem; border-radius: 999px; }
+
+      .error-block {
+        padding: var(--space-md);
+        border: 1px solid oklch(0.75 0.15 35);
+        border-radius: 1rem;
+        background: oklch(0.98 0.03 45);
+      }
+
+      .map-shell {
+        position: relative;
+        overflow: auto;
+        min-height: 28rem;
+        border: 1px solid var(--color-line);
+        border-radius: 1.25rem;
+        background: white;
+      }
+
+      .loading {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: rgb(255 255 255 / 0.62);
+        font-family: var(--font-mono);
+        z-index: 2;
+      }
+
+      svg { display: block; min-width: 100%; }
+      .edge { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .edge-label { font: 700 12px var(--font-mono); fill: var(--color-ink-soft); paint-order: stroke; stroke: white; stroke-width: 5px; }
+
+      .svg-node { cursor: pointer; outline: none; }
+      .svg-node rect { stroke: rgb(84 84 94 / 0.24); stroke-width: 1.5; fill: rgb(255 255 255 / 0.96); }
+      .svg-node.is-ending rect { fill: oklch(0.97 0.012 245); rx: 24; }
+      .svg-node.is-visited rect { fill: color-mix(in oklch, var(--color-accent) 6%, white); stroke: color-mix(in oklch, var(--color-accent) 30%, white); }
+      .svg-node.is-hit rect { fill: color-mix(in oklch, var(--color-accent) 14%, white); stroke: color-mix(in oklch, var(--color-accent) 52%, white); }
+      .node-eyebrow { font: 700 11px var(--font-mono); letter-spacing: 0.08em; fill: var(--color-ink-soft); }
+      .node-title { font: 700 14px var(--font-sans); fill: var(--color-ink); }
+      .node-count { font: 700 11px var(--font-mono); fill: var(--color-accent); }
+
+      dialog {
+        width: min(42rem, calc(100vw - 2rem));
+        border: 1px solid var(--color-line);
+        border-radius: 1.25rem;
+        padding: var(--space-lg);
+        color: var(--color-ink);
+        background: var(--color-panel);
+        box-shadow: 0 24px 80px rgb(30 24 18 / 0.24);
+      }
+
+      dialog::backdrop { background: rgb(30 24 18 / 0.32); backdrop-filter: blur(6px); }
+
+      .modal-head {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: var(--space-md);
+      }
+
+      .modal-kicker {
+        color: var(--color-ink-soft);
+        font: 700 0.78rem var(--font-mono);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .modal-list { padding-left: 1.2rem; line-height: 1.5; }
+
+      @media (max-width: 880px) {
+        .gamebook-viewer { grid-template-columns: 1fr; }
+        .controls { position: static; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page stack">
+      <a href="/" class="back-link"><span aria-hidden="true">&larr;</span> Tools index</a>
+      <header class="hero">
+        <div class="hero-copy stack">
+          <h1>Gamebook (Choose Your Own Adventure&trade;) Mapper</h1>
+          <p>Translate a branching choice book into the little DSL below, render the full map, and compare recorded routes against the graph.</p>
+        </div>
+      </header>
+      <div class="gamebook-viewer">
+        <section class="panel controls">
+          <div class="stack">
+            <section class="stack">
+              <h2 class="section-title">Choices</h2>
+              <p class="section-copy">Each event starts with <code>number. title</code>, followed by one or more choices like <code>A(27). description</code>.</p>
+              <div class="preset-row">
+                <label class="preset-picker">
+                  <span class="field-label-text">Preset</span>
+                  <select id="preset"></select>
+                </label>
+                <button id="loadPreset" type="button">Load preset</button>
+              </div>
+              <div class="mini-example">1. You, Neil Patrick Harris, are born in Albuquerque, New Mexico... A(3). If you would like to experience a happy childhood, go HERE . B(2). If you would prefer a miserable childhood, go HERE .</div>
+              <label>
+                <span class="field-label-text">Choice DSL</span>
+                <textarea id="choices" spellcheck="false"></textarea>
+              </label>
+            </section>
+            <section class="stack">
+              <h2 class="section-title">Paths</h2>
+              <p class="section-copy">One path per line. Letters are followed from the root event.</p>
+              <textarea id="paths" class="paths-textarea" placeholder="ABACAAABBA" spellcheck="false"></textarea>
+            </section>
+          </div>
+        </section>
+        <section class="panel canvas stack">
+          <div class="viewer-head">
+            <div class="stack">
+              <h2 class="section-title">Path Diagram</h2>
+              <p>Tap or click any node to read its full choices.</p>
+            </div>
+            <div class="head-actions">
+              <button id="saveSvg" type="button" disabled>Save map as SVG</button>
+              <p id="status" class="section-copy" role="status"></p>
+            </div>
+            <div id="summary" class="summary-row" aria-label="Diagram summary"></div>
+          </div>
+          <div id="errors" class="error-block stack" role="alert" hidden></div>
+          <div id="pathList" class="path-list" aria-label="Path outcomes"></div>
+          <div class="map-shell">
+            <div id="loading" class="loading" hidden>Laying out graph...</div>
+            <svg id="map" role="img" aria-label="Gamebook path diagram"></svg>
+          </div>
+          <p class="legend-note">Undefined target ids are treated as endings. Paths that stop on a defined event are marked in progress. Paths that request a missing letter or continue past an ending are marked invalid.</p>
+        </section>
+      </div>
+    </main>
+    <dialog id="nodeModal">
+      <div class="modal-head">
+        <div class="stack">
+          <div id="modalKicker" class="modal-kicker"></div>
+          <h3 id="modalTitle"></h3>
+        </div>
+        <button id="closeModal" type="button">Close</button>
+      </div>
+      <div id="modalBody" class="stack"></div>
+    </dialog>
+    <script type="module">
+      import ELK from "https://esm.sh/elkjs@0.11.0/lib/elk.bundled.js";
+
+      const elk = new ELK();
+const DEFAULT_CHOICES = String.raw`1. You, Neil Patrick Harris, are born in Albuquerque, New Mexico, on June 15, 1973, at what you're pretty sure is St. Joseph's Hospital, although it's har...
+A(3). If you would like to experience a happy childhood, go HERE .
+B(2). If you would prefer to experience a miserable childhood that later in life you can claim to have heroically overcome, go HERE .
+
+2. You, Neil Patrick Harris, are born in Albuquerque, New Mexico, on June 15, 1973. You're pretty sure it's in the backseat of a taxicab, but you can't be...
+A(3). If you would like to experience a more wholesome childhood, go HERE .
+B(94). If you are eager to meet your own children, skip ahead thirty years and go HERE .
+
+3. Your parents live in Ruidoso, a beautiful mountain town of around five thousand people perched over a mile up in the Sierra Blanca range of south-central New...
+A(5). If you want to begin exploring the world of theater, go HERE .
+B(8). If you want to start learning magic, go HERE .
+C(4). If you want to spend waaaaay too many hours practicing the Optimist Club speech in front of a bathroom mirror, go to the bathroom, press HERE and start reciting.
+
+4. Optimism: A Way of Life An Award-Winning Speech by Neil Patrick Harris, Age 13
+A(5). If, having practiced this speech to within an inch of your/its life, you feel ready to begin exploring the world of acting, go HERE .
+B(6). If, having practiced this speech to within an inch of your/its life, you feel ready to audition for your first movie role, go HERE .
+C(76). If, having practiced this speech to within an inch of your/its life, you feel ready to host a major televised awards show, go HERE .
+D(23). If, having practiced this speech to within an inch of your/its life, you are so imbued with optimism you are ready to stare down a crazed young actor outside a Los Angeles nightclub, go HERE .
+
+5. Annie is great. The Best Little Whorehouse in Texas is great. But it's Les Miserables that first opens up your adolescent soul to the glorious alternate u...
+A(6). To begin pursuing your love of acting in a way that might just possibly lead to your big break, go HERE .
+B(28). To finally get your chance to star onstage in a major production, go HERE .
+C(10). You know, a lot of young boys who are into theater turn out to be ... umm ... you know, why don't you just go HERE .
+
+6. It's the spring of 1986. In the wake of your star turn in How the West Was Really Won, your budding love of performance is in full bloom. Mr. Cook, the cho...
+A(12). If you go to the room on the left, go HERE .
+B(7). If you go to the room on the right, go HERE .
+
+7. "I said smoked turkey, not regular turkey, jackass!!!" The customer's angry shout jerks you back from fantasy to reality.
+A(7). End.
+
+8. You are five years old. You are hanging out with your mom's dad, your beloved Grandpa Scott. He hands you a match, a cork, a needle, a clear plastic cup, a...
+A(15). If you would like to pursue magic as a hobby despite this fiasco, go HERE .
+B(11). If you would like to pursue magic as a career despite this fiasco, go HERE .
+C(16). If you'd like to perform an actual magic trick right here right now, go HERE .
+D(19). If you're entirely through with magic and would rather focus on acting, go HERE .
+
+9. And now a word from your friend ...
+A(32). If you're feeling magical now that Penn Jillette is your friend, go HERE .
+B(29). If you're feeling horny now that Penn Jillette has made you gay, go HERE .
+C(28). If you're feeling musical theatery now that Penn Jillette has played Sondheim for you, go HERE .
+
+10. From early in life you are drawn to guys in a tingly kind of way. In elementary school you have a crush (if one could call it that) on the trumpet player in ...
+A(19). To get famous, go HERE .
+B(29). To get laid, go HERE .
+
+11. "And now I, Neil the Magnificent, shall attempt the most amazing trick ever conceived in the history of prestidigitation!"
+A(11). End.
+
+12. You are a thirteen-year-old boy at a summer theater camp in Las Cruces, New Mexico. You are starting a class in cold-reading auditions, and your teacher is r...
+A(13). To bask a little more in the happiness of making Clara's Heart, and to hear from an old friend, go HERE .
+B(17). To star in your next movie, this one receiving a cavalcade of negative reviews both unanimous and deserved, go HERE .
+
+13. And now a word from your friend ...
+A(17). For a less happy memory from the following year, go HERE .
+B(94). To meet your own two cute kids, go HERE .
+
+14. This marks the end of your professional magic career. But your passion for magic never wanes, and when you achieve fame, and the LA club scene rapidly disill...
+A(9). To spend more time in Penn Jillette's apartment, go HERE .
+B(15). If you're not ready for that kind of intimacy with Penn Jillette, go HERE .
+
+15. Alas, your acting career doesn't leave you with enough time or focus to practice magic enough to actively perform it. Your performances end up relegated mo...
+A(58). If you would like to pursue this cunningly teased opportunity, go HERE .
+B(59). If you would like to take part in another life-changing magic trick, go HERE .
+
+16. And now, in a never-before-attempted bit of meta-metaphysical wizardry, the real Neil Patrick Harris will reappear to bedazzle you with a magic trick. And by...
+A(32). If you'd like to take part in another magic trick, go HERE .
+B(19). If not, go HERE .
+
+17. It's 1988, and you are in the director's trailer on the set of a film based on the old novelty song "Purple People Eater" starring you, Ned Beatty, L...
+A(19). If you're ready to appear in a creatively and commercial successful piece of entertainment, go HERE .
+B(83). If you're ready to appear in a better class of kids' movie, go HERE .
+C(43). If you're ready for a vacation, age twenty years, go HERE .
+
+18. Cocktail interlude: How I Wet Your Mother.
+A(35). Return to the first prior page.
+B(41). Return to the second prior page.
+C(58). Return to the third prior page.
+D(22). Keep the cocktail party going.
+
+19. After your first film role and a few supporting parts on TV shows, you are utterly addicted to acting. It's something you want to do as much as you possibl...
+A(22). To attempt to enjoy the perks of being a child star, only to discover yourself pretty much constitutionally incapable of doing so, go HERE .
+B(33). To do more TV acting, go HERE .
+C(20). To hear from the creator of Doogie Howser, go HERE .
+
+20. And now a word from your friend ...
+A(21). Go HERE .
+
+21. At the end of every episode of Doogie Howser, M.D., Doogie types a few sentences into the journal he keeps on his computer. Most of the time the entries are ...
+A(26). Sometimes I wish I could just go away to a different place where I don't have to be Doogie Howser anymore. I'm specifically thinking of HERE .
+B(66). Other times I wish I weren't such a nice guy. Instead of being a nice doctor, I'd like to be an evil, horrible doctor, somewhere far away, like HERE .
+C(89). And other times I wish I could hang out with Katy Perry at the Super Bowl, but I'll never get to do that, because that's in Indianapolis and to get there I would have to travel all the way HERE .
+
+22. There comes a moment in every young actor's life when he is no longer a child. And according to the laws of California, that moment falls exactly on your s...
+A(10). To delve more into the tenuous netherworld that is your adolescent sexuality, go HERE .
+B(23). If you prefer to keep those kind of issues hovering in your subconscious for now, go HERE .
+
+23. For all this you still enjoy hanging out with your friends and watching the night unfold from a distance, laughing at yourself for the way you spend night af...
+A(25). If your response to Scott Caan is "I'm going to do to your face what cancer did to your dad's body in Brian's Song," go HERE .
+B(24). If your response to Scott Caan is "I don't know, Scott, what is up with the West Side?" go HERE .
+
+24. In an alternate universe this is where Scott Caan takes a swing at you. In the actual universe, this is where Scott Caan begins acting like he desperately wa...
+A(41). If you are ready to deal with another mercurial actor over a longer period of time, go HERE .
+B(26). If you would like to put the Doogie period in general, and Scott Caan in particular, behind you, go HERE .
+C(54). If you would like to learn a cocktail recipe far tastier than the vodka cranberries you'd been drinking just before meeting Scott Caan, go HERE .
+
+25. Scott Caan does to your body what his father did to Carlo's body in The Godfather.
+A(25). End.
+
+26. Doogie Howser, M.D. ends in 1993, as do your teens. Together in life, together in death.
+A(33). To re-experience the wonder that is the made-for-television movie, go HERE .
+B(36). To attempt to embark on a stage career, go HERE .
+C(45). To return to LA and make another push to star on the big screen, go HERE .
+
+27. Over the decades you guest-star on episodes of more than a dozen different TV sitcoms and dramas. Without exception, each one is very special.
+A(85). To work with Sesame Street again, go HERE .
+B(77). If you are really enjoying making short appearances on a variety of different TV shows, go HERE .
+C(28). If you yearn for the legitimacy of stage work, or are just jonesin' for some hot manlove, go HERE .
+
+28. Despite your love for the stage you are far too busy rescuing patients from a variety of camera-ready ailments to appear on it. But when Doc Howser hangs up ...
+A(29). If you want to hook up with a dude, go HERE .
+B(93). If you want to rock out onstage even harder and more transgressively, go HERE .
+C(36). If you're not ready for that yet, but are still interested in pursuing a life in theater and/or learning titillating gossip about Kelsey Grammer, go HERE .
+D(38). If this whole thing is getting too gay for you, snort a line of coke off a stripper's ass HERE .
+
+29. Here's a peculiar and rather disappointing fact about you: you're not much good at remembering the intimate details of your sexual history. To be honest,...
+A(39). If you're ready for it to be better, go HERE .
+B(61). If you're ready for it to be easier, go HERE .
+C(34). If you're ready for neither and this whole thing is giving you gay anxiety, go HERE .
+
+30. Dr. Horrible is one of the greatest and most satisfying experiences of your professional life. So when Joss Whedon calls you out of the blue to say he wants ...
+A(30). End.
+
+32. Once again, the real Neil Patrick Harris.
+A(59). If you'd like to take part in another magic trick, go HERE .
+B(39). If you'd like to feel enchanted in a more romantic way, go HERE .
+C(87). Or, check out the chapter starting HERE . It doesn't really flow from this chapter but it's really cool. There's, like, a yacht and everything.
+
+33. Between 1988 and 2001 you star in thirteen made-for-TV movies. You appear in so many that after a while you begin making up new ones in your mind for your ow...
+A(48). Get cast in How I Met Your Mother.
+B(87). Hang out with Sir Elton John.
+C(38). Meet Harold and Kumar.
+
+34. WHEN WE HERE AT TOTALLY STRAIGHT GUY MAGAZINE WERE TOLD NEIL PATRICK HARRIS WAS INTERESTED IN SITTING DOWN FOR AN INTERVIEW, WE WERE SO EXCITED WE ALMOST SPI...
+A(39). If you've had enough of this interview and want to go meet the aforementioned man-on-man sex partner of your dreams, go HERE .
+B(51). If you want to hear from Barney Stinson himself, go HERE .
+
+35. Congratulations! You have found the hidden page. No other section leads to this one, and it's impossible to imagine anyone violating this book's explicit...
+A(18). Relax with the first drink option.
+B(54). Relax with the second drink option.
+
+36. Rent gets you a lot of action, and not just offstage. It raises your standing in the theater community, and shortly thereafter Dan Sullivan, one of America's...
+A(56). To work with Stephen Sondheim again, go HERE .
+B(41). To continue your theater career in a less illustrious way, go HERE .
+C(55). To go to Ireland, 'cause why the hell not, go HERE .
+
+37. Have courage, Neil. Don't be scared. Life is an adventure.
+A(43). Go back to the vacation choice.
+B(62). Go back to the coming-out choice.
+C(69). Go back to the family choice.
+
+38. Two of the most important people you meet in your post-Doogie life turn out to be a couple of stoner dudes from Jersey. Not that you set out to meet them. Or...
+A(34). Woohoo! To be the subject of a profile in Totally Straight Guy magazine 'cuz you're so totally straight, go HERE .
+B(92). To go out on a date with the kind of hot chick a raging heterosexual man like you can get anytime he wants, go HERE .
+C(73). If all this adrenaline has you ready for a climactic car chase, go HERE . (It's a gay car chase, though.)
+
+39. Relationship paths involving David.
+A(43). To take a vacation with David, go HERE .
+B(61). To tell the world you love David, go HERE .
+C(70). To start a family with David, go HERE .
+D(81). To sing a song with lyrics by a different guy named David, go HERE .
+
+40. FRESH PASTA WITH BOLOGNESE SAUCE
+A(88). To tweet food porn about this delicious meal, go HERE .
+B(78). To share a meal with one of your best friends, Kelly Ripa, go HERE .
+C(95). To bask even more deliciously in David's love, go HERE .
+
+41. In 2002 you are hungry for a starring role on Broadway, and you think you may have found one in Proof, David Auburn's beautifully written Pulitzer Prize ...
+A(18). If you need a drink to calm down, go HERE .
+B(52). If you need to wake your brain back up, go HERE .
+C(47). To continue your stage career, willkommen/bienvenue/welcome im/au/to HERE .
+D(45). To attempt to relaunch your movie career, go HERE .
+
+42. And now a word from your friend ...
+A(27). Amy is so awesome. It's too bad you won't get to work with her on any of the very special TV guest spots you are now going to do HERE .
+B(84). Or in any of the kids' movies HERE .
+
+43. You and your boyfriend, David, are in the middle of a Costa Rican vacation. You spend the first few days in an honest- to-God tree house, a fifty-foot-high ...
+A(37). If you decide not to go, turn HERE .
+B(44). If you decide to go, keep reading HERE .
+
+44. You and David are both very excited to climb up to the zip-line platforms. One or both of you may or may not also be excited about the possibility that one o...
+A(55). To go on another vacation with David, go HERE .
+B(95). To experience the coolest vacation/birthday present in the history of mankind, courtesy of David, go HERE .
+
+45. It's been nearly ten years since you appeared on the big screen in Purple People Eater, the movie that was incredibly successful and made you a mega-supers...
+A(38). To learn how your hard-core drug use affected two cheeseburger-seeking New Jerseyites, go HERE .
+B(3). To go back to a simpler, happier, drug-freer time, go HERE .
+C(46). To be the biggest movie star in the world, go HERE .
+
+46. In 1997 your life changes forever when you, Neil Patrick Harris, are cast as Jack Dawson in Titanic.
+A(7). Go HERE .
+
+47. It's 2003 and you're stepping into the boots Alan Cumming once wore as the emcee in the Sam Mendes/Rob Marshall directed Broadway production of Cabaret...
+A(68). Try to squeeze theater work around How I Met Your Mother.
+B(48). Skip extra theater work and return to HIMYM.
+C(52). Take a break with a crossword puzzle.
+
+48. Int., Living room. The year 2030.
+A(48). End.
+
+50. We now return to How I Became a Bro, already in progress.
+A(51). To hear from Barney Stinson, go HERE .
+B(60). To kill someone, go HERE .
+
+51. And now a few words from ...
+A(95). If, despite Barney's perpetual youth, you want to get older, go HERE .
+B(29). If, despite Barney's lady-killer status, you want to get gay, go HERE .
+
+52. The cryptic clues below all refer to your life. They are in random order. Solve them (the number tells you how many letters in the answer), and figure out wh...
+A(52). End.
+
+53. Perez Hilton reflects on Neil years later.
+A(62). Return HERE .
+
+54. Cocktail recipe chapter.
+A(66). Or, to star in the musical for which this drink was named go HERE .
+
+55. You and David are taking a hiking trip in northwest Ireland. You hike to the famous Giant's Causeway, which you reflect looks like something out of Myst be...
+A(95). Freaky, right? Anyway, go HERE . What? Sometimes in life you don't get a choice.
+
+56. Sweeney Todd is one of the greatest and most satisfying experiences of your professional life. So when Stephen Sondheim calls you out of the blue to say he w...
+A(56). End.
+
+58. Tucked away in Hollywood is a mansion called the Magic Castle. It was once a private residence, but in the 1960s brothers Bill and Milt Larsen decided to tur...
+A(84). If all this talk about magic is making you want to do some for real, on live TV, in the middle of a freakin' awards show, go HERE .
+B(18). If all this talk about magic is making you thirsty, go HERE .
+C(61). If all this talk about magic is making you horny, go HERE .
+
+59. And now, more of the literary magical stylings of the actual NPH.
+A(80). If you'd like to take part in another magic trick, go HERE .
+B(40). Unless you're hungry, in which case go HERE .
+
+60. On the evening of September 22, 2012, you, Neil Patrick Harris, feel a sudden, overwhelming urge to commit murder.
+A(60). End.
+
+61. You are gay.
+A(53). For reflections from an older, wiser Perez Hilton, go HERE .
+B(62). To continue the happy, wonderful process of publicly coming out, go HERE .
+
+62. At the time, that is what Perez believes. You emphatically do not believe it. You believe the coming-out process is a highly individual one wrought with all ...
+A(37). If you choose not to come out, go HERE .
+B(64). If you choose to come out in a rational, controlled way that allows your career to continue and thrive, go HERE .
+C(65). If you choose to come out in a reckless, over-the-top way that justifiably destroys your career, go HERE .
+
+63. Congratulations! If you are seeing these words while hearing them read out loud, you are attending a promotional event and reading along as I speak them. (No...
+A(63). End.
+
+64. You call your manager, Booh Schut, and your agent, Steve Dottenville. You release the publicist who may or may not have gotten you into this mess to begin wi...
+A(77). To dish about Oprah, along with the many other talk-show hosts whose shows you have appeared on, go HERE .
+B(70). To take the next step toward building a family, go HERE .
+
+65. It's just about 5:30 PST. You stand backstage awaiting your big moment.
+A(65). End.
+
+66. It's 2007, and America's television and movie writers are on strike. No one is making scripted entertainment anymore. Mirth is dead. A drama-hungry, come...
+A(30). To work with Joss Whedon again, go HERE .
+B(88). For more fun on the interwebnet.com, go HERE .
+C(40). Hungry? Go HERE .
+D(67). To hear from your Dr. Horrible co-star, Nathan Fillion, go HERE .
+
+67. And now a word from your friend ...
+A(90). To watch the Emmys from a different perspective, go HERE .
+B(30). To hear from Joss Whedon, go HERE .
+C(3). To win your first major competition, report HERE . Bring a pressed suit, your cutest smile, and a $25 entry fee.
+
+68. In the middle of your run in How I Met Your Mother, you try to squeeze in one little piece of theater work: a limited-run staged reading of Sondheim's Comp...
+A(93). If you want to reclaim your reputation in the Broadway community, go HERE .
+B(66). If you feel horrible about what's happened, so much so that you want the world to know you as Horrible, go HERE .
+C(87). If you would rather cheer yourself up by spending a week at Sir Elton John's home in Nice, go HERE .
+
+69. As you get older you notice a surprising number of contemporaries who, when introduced to friends' children, demonstrate indifference at best, feral suspic...
+A(37). If you change your mind about having kids, go HERE .
+B(70). If you're ready for a family, go HERE .
+
+70. But alas, try and try as you might, you and David simply cannot get pregnant.
+A(73). To see what could happen if the press knew you were trying to have children, go HERE .
+B(71). To continue the story, go HERE .
+
+71. So now all that precaution and security seem to have been for naught. You're back to square one, older and wiser and sadder, the guest bedroom still its ne...
+A(51). If reading that last line made you think about Barney Stinson and you're suddenly anxious to hear from him, go HERE .
+B(72). But you should probably stick around and go HERE . It's about to get really exciting.
+
+72. Phone call! They take!
+A(94). To further bask in the awesomeness of Gideon and Harper, go HERE .
+B(76). To watch Bret Michaels of Poison get whacked upside the head, go HERE .
+
+73. A cordon of police cars follow behind you. Ahead, a highway overpass rapidly fills with people waving and holding posters like STAY STRONG, BARNEY and RUN, N...
+A(73). End.
+
+75. Fundamentally interwoven in your genetic makeup is the ability and desire to play the role of Kermit the Frog or P. T. Barnum, the impresario, the circus ri...
+A(76). If you would like to host the 2009 Tonys and watch a hair-metal hero almost die of blunt force trauma, go HERE .
+B(81). If you would like to host the 2011 Tonys and sing a legen, wait for it, dary opening song called "Broadway Is Not Just for Gays Anymore," go HERE .
+C(84). If you would like to host the 2013 Tonys and pull off an extraordinary theatrical coup involving 121 actors in which you literally jump through a hoop and then disappear from the stage to reappear in the middle of the audience five seconds later, HERE .
+D(90). If you would like to host the 2013 Emmys and wrangle together a half-dozen other awards-show hosts to perform with you in an evening whose overall theme turns out to be the icy hand of death, go HERE .
+
+76. It's the 2009 Tony Awards and you are over the moon. It's your first time presiding over one of the four "major" awards shows. You're on a mission....
+A(81). If you'd like to host the Tonys again, go HERE .
+B(89). If you'd like to be hosted by Katy Perry, go HERE .
+
+77. The NPH Show interviews Neil about talk-show appearances.
+A(79). If you want to read the rest of your interview with yourself, go HERE .
+B(78). If you want to hear from a close friend of Howard's (and yours), go HERE .
+C(54). If you've had enough of this meta-self-indulgence and would like to mix yourself a drink, go HERE .
+
+78. And now a word from your friend ...
+A(79). Finish the interview about talk-show appearances.
+B(58). Hang out with other magic types.
+
+79. YOU: We're back to The NPH Show. I'm here with Neil Patrick Harris, or "NPH," as his fans call him.
+A(48). To flip the channel and find yourself on How I Met Your Mother, go HERE .
+B(75). To flip the channel and find yourself hosting an awards show, go HERE .
+C(33). To flip the channel and find yourself in one of a dozen made-for-TV movies, go HERE .
+
+80. And now, one more magic trick from Mr. Neil Patrick Harris.
+A(48). Sorry. The magic show is over. Please exit through the rear doors and emerge HERE .
+B(77). Although if you're still interested in doing more magic as Neil Patrick Harris, only this time on talk shows, feel free to take the secret exit leading HERE .
+
+81. In 2011 Glenn and Ricky bring you back to host the Tonys for the second time. The ceremony is being held at the Beacon Theatre because a new Cirque du Soleil...
+A(84). If you'd like to host the Tonys a third and fourth time, go HERE .
+B(29). If sodomy genuinely is required, go HERE .
+
+82. And now a word from your friend ...
+A(68). To do damage to a different kind of company, go HERE .
+B(92). To hear from one of your costars in Seth MacFarlane's film A Million Ways to Die in the West, go HERE .
+
+83. You have a very healthy inner child, and for many years it's been asking your outer adult to get more work in kids' entertainment. But your outer adult n...
+A(94). To innocently hang out with your kids, go HERE .
+B(29). To not-so-innocently feel up an acrobat that time in Berlin, go HERE .
+C(42). To hear from Amy Sedaris, a friend you made on the set of the movie The Best and the Brightest, a small independent film that is otherwise not mentioned anywhere in this book, go HERE .
+
+84. After hosting the Tonys again in 2012, the producers ask you back the next year for a fourth (but hopefully not final) time. The show is moving back to Radio...
+A(90). To host the Emmys later this same year, go HERE .
+B(82). To hear from the man who hosted the Oscars earlier this same year, go HERE .
+
+85. Sesame Street is one of the greatest and most satisfying experiences of your professional life. So when Big Bird calls you out of the blue to say he wants to...
+A(85). End.
+
+87. It's a typical day. After a quick jaunt on the jetty boat to the restaurant overlooking St. Tropez, where you and a dozen beautiful young people savor a l...
+A(88). To tweet about how awesome Sir Elton John is, go HERE .
+B(7). To live a life in which you never meet Sir Elton John, go HERE .
+
+88. Tweets and social-media anecdotes.
+A(96). Go HERE .
+B(84). Unless you prefer to go HERE .
+
+89. It's the night before Super Bowl XLVI (spoiler alert: Giants 21, Patriots 17), and you are in the host city of Indianapolis, attending something officially...
+A(96). For a 100 percent gay-friendly vacation, go HERE .
+B(81). For a 100 percent straight-friendly musical number, go HERE .
+
+90. In 2009 you host the Emmys for the first time to widely favorable reviews. You have solid jokes, a wickedly witty and on-point opening number courtesy of you...
+A(84). To pull off one of the more extraordinary musical numbers ever on live TV, go HERE .
+B(91). To continue hosting Emmys, go HERE .
+
+91. A few months earlier you'd opened the Tonys with "Bigger," one of the more extraordinary musical numbers ever pulled off on live TV. You don't want t...
+A(66). To spend more time with Nathan Fillion, go HERE .
+B(87). To spend more time with Sir Elton John, go HERE .
+
+92. And now a word from your friend ...
+A(90). To appear in a musical number with Sarah, go HERE .
+
+93. Everything you've learned and achieved as an actor, performer, entertainer, and host culminates in 2014 when you play the title role in the Broadway reviva...
+A(97). You're ready for your closing number. Go HERE .
+
+94. Your four-year-old twins, Gideon and Harper, share a number of relatively unusual characteristics. For example, they are the best kids in the whole wide worl...
+A(96). To take your kids on a fun trip to Disney World, go HERE .
+B(97). For a happy ending, go HERE . A real happy ending. Not a metaphorical "happy ending," sicko.
+C(29). Although if you want that, that's back HERE .
+
+95. You are, like, crazy loved.
+A(95). End.
+
+96. You're on the Peter Pan's Flight ride at Disney World. You are forty years old going on five. Wheeeeeeeeeeee!
+A(97). Go HERE .
+
+97. Final musical happy ending.
+A(1). To live your life again, go HERE .
+
+98. Closing thanks and acknowledgments.
+A(98). End.`;
+const DEFAULT_PATHS = "";
+const CHOICE_PRESETS = [
+  {
+    id: "nph-autobiography",
+    label: "Neil Patrick Harris",
+    description: "Choose Your Own Autobiography",
+    choices: DEFAULT_CHOICES,
+    paths: DEFAULT_PATHS,
+  },
+];
+const PATH_COLORS = [
+  "oklch(0.58 0.17 259)",
+  "oklch(0.62 0.18 11)",
+  "oklch(0.64 0.14 166)",
+  "oklch(0.72 0.15 72)",
+  "oklch(0.6 0.16 326)",
+  "oklch(0.55 0.15 220)",
+  "oklch(0.68 0.16 37)",
+  "oklch(0.7 0.14 142)",
+];
+const EVENT_LINE_RE = /^(\d+)\.\s*(.*)$/;
+const CHOICE_LINE_RE = /^([A-Z])\((\d+)\)\.\s*(.*)$/;
+const INPUT_SETTLE_MS = 120;
+const MAX_PARSE_ERRORS = 40;
+const NODE_WIDTH = 220;
+const NODE_TEXT_LINE_HEIGHT = 18;
+const EVENT_BASE_HEIGHT = 88;
+const ENDING_BASE_HEIGHT = 72;
+const MAX_NODE_PREVIEW_LINES = 3;
+const URL_PRESET_PARAM = "preset";
+const URL_PATHS_PARAM = "paths";
+
+function getPresetById(id) {
+  return CHOICE_PRESETS.find((entry) => entry.id === id) ?? null;
+}
+
+function getPresetByChoices(choices) {
+  return CHOICE_PRESETS.find((preset) => preset.choices === choices) ?? null;
+}
+
+function getInitialViewerState() {
+  const fallbackPreset = CHOICE_PRESETS[0];
+
+  if (typeof window === "undefined") {
+    return {
+      presetPickerId: fallbackPreset.id,
+      activePresetId: fallbackPreset.id,
+      choices: fallbackPreset.choices,
+      paths: fallbackPreset.paths,
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const preset = getPresetById(params.get(URL_PRESET_PARAM)) ?? fallbackPreset;
+
+  return {
+    presetPickerId: preset.id,
+    activePresetId: preset.id,
+    choices: preset.choices,
+    paths: params.get(URL_PATHS_PARAM) ?? preset.paths,
+  };
+}
+
+function createEvent(id, title, choices, lineNumber) {
+  const choiceMap = Object.create(null);
+
+  for (const choice of choices) {
+    choiceMap[choice.marker] = choice;
+  }
+
+  return { id, title, choices, choiceMap, lineNumber };
+}
+
+function finishChoiceParse(events, firstEventId, errors) {
+  if (events.size === 0) {
+    errors.push("No events found. Add at least one event and one choice.");
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+    graph: {
+      events,
+      rootId: events.has(1) ? 1 : firstEventId,
+    },
+  };
+}
+
+function pushParseError(errors, message) {
+  if (errors.length < MAX_PARSE_ERRORS) {
+    errors.push(message);
+    return false;
+  }
+
+  if (errors.length === MAX_PARSE_ERRORS) {
+    errors.push(
+      `Too many parse errors. Showing the first ${MAX_PARSE_ERRORS}.`,
+    );
+  }
+
+  return true;
+}
+
+function parseChoiceDsl(sourceText) {
+  const lines = sourceText.replace(/\r/g, "").split("\n");
+  const events = new Map();
+  const errors = [];
+  let lineIndex = 0;
+  let firstEventId = null;
+
+  while (lineIndex < lines.length) {
+    const rawLine = lines[lineIndex].trim();
+    if (!rawLine) {
+      lineIndex += 1;
+      continue;
+    }
+
+    const eventMatch = rawLine.match(EVENT_LINE_RE);
+    if (!eventMatch) {
+      if (
+        pushParseError(
+          errors,
+          `Line ${lineIndex + 1}: expected an event like "17. SCHOOL BUS".`,
+        )
+      ) {
+        return finishChoiceParse(events, firstEventId, errors);
+      }
+      lineIndex += 1;
+      continue;
+    }
+
+    const eventId = Number(eventMatch[1]);
+    const title = eventMatch[2].trim();
+    if (events.has(eventId)) {
+      if (
+        pushParseError(
+          errors,
+          `Line ${lineIndex + 1}: event ${eventId} is defined more than once.`,
+        )
+      ) {
+        return finishChoiceParse(events, firstEventId, errors);
+      }
+    }
+
+    if (firstEventId === null) firstEventId = eventId;
+    lineIndex += 1;
+
+    const choices = [];
+    const seenMarkers = new Set();
+
+    while (lineIndex < lines.length) {
+      const choiceLine = lines[lineIndex].trim();
+      if (!choiceLine) {
+        lineIndex += 1;
+        break;
+      }
+      if (EVENT_LINE_RE.test(choiceLine)) break;
+
+      const choiceMatch = choiceLine.match(CHOICE_LINE_RE);
+      if (!choiceMatch) {
+        if (
+          pushParseError(
+            errors,
+            `Line ${lineIndex + 1}: expected a choice like "A(38). Go to art".`,
+          )
+        ) {
+          return finishChoiceParse(events, firstEventId, errors);
+        }
+        lineIndex += 1;
+        continue;
+      }
+
+      const marker = choiceMatch[1];
+      const targetId = Number(choiceMatch[2]);
+      const text = choiceMatch[3].trim();
+
+      if (seenMarkers.has(marker)) {
+        if (
+          pushParseError(
+            errors,
+            `Line ${lineIndex + 1}: event ${eventId} repeats choice ${marker}.`,
+          )
+        ) {
+          return finishChoiceParse(events, firstEventId, errors);
+        }
+      }
+      seenMarkers.add(marker);
+
+      choices.push({
+        marker,
+        targetId,
+        text,
+        lineNumber: lineIndex + 1,
+      });
+      lineIndex += 1;
+    }
+
+    if (choices.length === 0) {
+      if (
+        pushParseError(
+          errors,
+          `Line ${lineIndex}: event ${eventId} must have at least one choice.`,
+        )
+      ) {
+        return finishChoiceParse(events, firstEventId, errors);
+      }
+    }
+
+    if (!events.has(eventId)) {
+      events.set(eventId, createEvent(eventId, title, choices, lineIndex + 1));
+    }
+  }
+
+  return finishChoiceParse(events, firstEventId, errors);
+}
+
+function edgeKey(fromId, toId, marker) {
+  return `${fromId}:${marker}:${toId}`;
+}
+
+function getPathColor(index) {
+  return PATH_COLORS[index % PATH_COLORS.length];
+}
+
+function formatCountLabel(count, singular) {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
+}
+
+function getNodeSurfaceStyles(node) {
+  const nodeRadius = node.kind === "ending" ? "24px" : "16px";
+
+  if (node.endingCount > 0) {
+    return {
+      "--node-fill": "color-mix(in oklch, var(--color-accent) 14%, white)",
+      "--node-stroke": "color-mix(in oklch, var(--color-accent) 52%, white)",
+      "--node-radius": nodeRadius,
+    };
+  }
+
+  if (node.nodeCount > 0) {
+    return {
+      "--node-fill": "color-mix(in oklch, var(--color-accent) 6%, white)",
+      "--node-stroke": "color-mix(in oklch, var(--color-accent) 30%, white)",
+      "--node-radius": nodeRadius,
+    };
+  }
+
+  return {
+    "--node-fill":
+      node.kind === "ending"
+        ? "oklch(0.97 0.012 245)"
+        : "rgb(255 255 255 / 0.96)",
+    "--node-stroke": "rgb(84 84 94 / 0.24)",
+    "--node-radius": nodeRadius,
+  };
+}
+
+function createTraceResult(
+  pathInput,
+  status,
+  message,
+  nodeIds,
+  edgeKeys,
+  finalId,
+) {
+  return {
+    ...pathInput,
+    status,
+    message,
+    nodeIds,
+    edgeKeys,
+    finalId,
+  };
+}
+
+function getNodeCount(summary, nodeId) {
+  return summary.nodeCounts.get(nodeId) ?? 0;
+}
+
+function getEndingCount(summary, nodeId) {
+  return summary.endingCounts.get(nodeId) ?? 0;
+}
+
+function createNodeModel({
+  id,
+  kind,
+  title,
+  previewLines,
+  hasOverflow,
+  detail,
+}) {
+  return {
+    id: String(id),
+    nodeId: id,
+    kind,
+    title,
+    previewLines,
+    hasOverflow,
+    detail,
+    width: NODE_WIDTH,
+    height: nodeHeightFromPreview(previewLines.length, kind === "ending"),
+  };
+}
+
+function createBaseEdge(sourceId, choice) {
+  return {
+    id: edgeKey(sourceId, choice.targetId, choice.marker),
+    source: String(sourceId),
+    target: String(choice.targetId),
+    marker: choice.marker,
+    text: choice.text,
+  };
+}
+
+function getBaseEdgeColor(edgeCount) {
+  return edgeCount > 0 ? "rgb(110 110 120 / 0.42)" : "rgb(110 110 120 / 0.24)";
+}
+
+function parsePathInputs(text) {
+  return text
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((raw, index) => ({ raw, normalized: raw.toUpperCase(), index }));
+}
+
+function tracePath(graph, pathInput) {
+  const { events, rootId } = graph;
+  const invalidMatch = pathInput.normalized.match(/[^A-Z]/);
+
+  if (rootId === null) {
+    return createTraceResult(
+      pathInput,
+      "invalid",
+      "No root event available.",
+      [],
+      [],
+      null,
+    );
+  }
+
+  if (invalidMatch) {
+    return createTraceResult(
+      pathInput,
+      "invalid",
+      `Contains invalid character "${invalidMatch[0]}". Use letters only.`,
+      [rootId],
+      [],
+      rootId,
+    );
+  }
+
+  let currentId = rootId;
+  const nodeIds = [currentId];
+  const edgeKeys = [];
+
+  for (
+    let stepIndex = 0;
+    stepIndex < pathInput.normalized.length;
+    stepIndex += 1
+  ) {
+    const marker = pathInput.normalized[stepIndex];
+    const event = events.get(currentId);
+
+    if (!event) {
+      return createTraceResult(
+        pathInput,
+        "invalid",
+        `Step ${stepIndex + 1}: path continues after ending ${currentId}.`,
+        nodeIds,
+        edgeKeys,
+        currentId,
+      );
+    }
+
+    const choice = event.choiceMap[marker];
+    if (!choice) {
+      return createTraceResult(
+        pathInput,
+        "invalid",
+        `Step ${stepIndex + 1}: event ${currentId} has no ${marker} choice.`,
+        nodeIds,
+        edgeKeys,
+        currentId,
+      );
+    }
+
+    edgeKeys.push(edgeKey(currentId, choice.targetId, choice.marker));
+    currentId = choice.targetId;
+    nodeIds.push(currentId);
+  }
+
+  if (events.has(currentId)) {
+    return createTraceResult(
+      pathInput,
+      "in-progress",
+      `Stops at event ${currentId} before reaching an ending.`,
+      nodeIds,
+      edgeKeys,
+      currentId,
+    );
+  }
+
+  return createTraceResult(
+    pathInput,
+    "ending",
+    `Reached ending ${currentId}.`,
+    nodeIds,
+    edgeKeys,
+    currentId,
+  );
+}
+
+function summarizeTraces(graph, traces) {
+  const edgeCounts = new Map();
+  const nodeCounts = new Map();
+  const endingCounts = new Map();
+  let invalidCount = 0;
+  let inProgressCount = 0;
+  let endingCount = 0;
+
+  for (const trace of traces) {
+    if (trace.status === "invalid") invalidCount += 1;
+    if (trace.status === "in-progress") inProgressCount += 1;
+    if (trace.status === "ending") endingCount += 1;
+
+    for (const nodeId of trace.nodeIds) {
+      nodeCounts.set(nodeId, (nodeCounts.get(nodeId) ?? 0) + 1);
+    }
+
+    for (const key of trace.edgeKeys) {
+      edgeCounts.set(key, (edgeCounts.get(key) ?? 0) + 1);
+    }
+
+    if (trace.status === "ending" && trace.finalId !== null) {
+      endingCounts.set(
+        trace.finalId,
+        (endingCounts.get(trace.finalId) ?? 0) + 1,
+      );
+    }
+  }
+
+  let totalEdges = 0;
+  const endingIds = new Set();
+  for (const event of graph.events.values()) {
+    totalEdges += event.choices.length;
+    for (const choice of event.choices) {
+      if (!graph.events.has(choice.targetId)) endingIds.add(choice.targetId);
+    }
+  }
+
+  return {
+    edgeCounts,
+    nodeCounts,
+    endingCounts,
+    invalidCount,
+    inProgressCount,
+    endingCount,
+    totalNodes: graph.events.size + endingIds.size,
+    totalEdges,
+  };
+}
+
+function wrapText(text, maxCharsPerLine) {
+  if (!text) return [""];
+  const words = text.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [""];
+
+  const lines = [];
+  let currentLine = words[0];
+
+  for (let index = 1; index < words.length; index += 1) {
+    const nextWord = words[index];
+    if (`${currentLine} ${nextWord}`.length <= maxCharsPerLine) {
+      currentLine += ` ${nextWord}`;
+      continue;
+    }
+
+    lines.push(currentLine);
+    currentLine = nextWord;
+  }
+
+  lines.push(currentLine);
+  return lines;
+}
+
+function formatEventDetail(event) {
+  return {
+    kicker: `Event ${event.id}`,
+    title: event.title || `Event ${event.id}`,
+    body: null,
+    choices: event.choices.map((choice) => ({
+      marker: choice.marker,
+      targetId: choice.targetId,
+      text: choice.text,
+    })),
+  };
+}
+
+function formatEndingDetail(endingId) {
+  return {
+    kicker: `Ending ${endingId}`,
+    title: `Ending ${endingId}`,
+    body: "This node is an undefined target id referenced by a choice, so the viewer treats it as a terminal ending.",
+    choices: [],
+  };
+}
+
+function nodeHeightFromPreview(previewLineCount, isEnding) {
+  const baseHeight = isEnding ? ENDING_BASE_HEIGHT : EVENT_BASE_HEIGHT;
+  const minimumLineCount = isEnding ? 1 : 2;
+  const extraLines = Math.max(0, previewLineCount - minimumLineCount);
+  return baseHeight + extraLines * NODE_TEXT_LINE_HEIGHT;
+}
+
+function buildNodeModels(graph) {
+  const nodeModels = [];
+  const baseEdges = [];
+  const endingIds = new Set();
+
+  for (const event of graph.events.values()) {
+    const title = event.title || `Event ${event.id}`;
+    const lines = wrapText(title, 20);
+    const previewLines = lines.slice(0, MAX_NODE_PREVIEW_LINES);
+    const hasOverflow = lines.length > previewLines.length;
+    nodeModels.push(
+      createNodeModel({
+        id: event.id,
+        kind: "event",
+        title,
+        previewLines,
+        hasOverflow,
+        detail: formatEventDetail(event),
+      }),
+    );
+
+    for (const choice of event.choices) {
+      baseEdges.push(createBaseEdge(event.id, choice));
+      if (!graph.events.has(choice.targetId)) endingIds.add(choice.targetId);
+    }
+  }
+
+  for (const endingId of [...endingIds].sort((left, right) => left - right)) {
+    const title = `Ending ${endingId}`;
+    const lines = wrapText(title, 18);
+    const previewLines = lines.slice(0, MAX_NODE_PREVIEW_LINES);
+    nodeModels.push(
+      createNodeModel({
+        id: endingId,
+        kind: "ending",
+        title,
+        previewLines,
+        hasOverflow: false,
+        detail: formatEndingDetail(endingId),
+      }),
+    );
+  }
+
+  return { nodeModels, baseEdges };
+}
+
+
+      const svgNS = "http://www.w3.org/2000/svg";
+      const choicesEl = document.getElementById("choices");
+      const pathsEl = document.getElementById("paths");
+      const presetEl = document.getElementById("preset");
+      const loadPresetEl = document.getElementById("loadPreset");
+      const summaryEl = document.getElementById("summary");
+      const errorsEl = document.getElementById("errors");
+      const pathListEl = document.getElementById("pathList");
+      const mapEl = document.getElementById("map");
+      const loadingEl = document.getElementById("loading");
+      const saveSvgEl = document.getElementById("saveSvg");
+      const statusEl = document.getElementById("status");
+      const modalEl = document.getElementById("nodeModal");
+      const closeModalEl = document.getElementById("closeModal");
+      const modalKickerEl = document.getElementById("modalKicker");
+      const modalTitleEl = document.getElementById("modalTitle");
+      const modalBodyEl = document.getElementById("modalBody");
+      let currentNodes = new Map();
+      let renderTimer = 0;
+      let renderVersion = 0;
+
+      function clear(element) {
+        element.replaceChildren();
+      }
+
+      function svg(name) {
+        return document.createElementNS(svgNS, name);
+      }
+
+      function pill(text, className) {
+        const el = document.createElement("span");
+        el.className = className || "pill";
+        el.textContent = text;
+        return el;
+      }
+
+      function syncUrl() {
+        const matchingPreset = getPresetByChoices(choicesEl.value);
+        const url = new URL(window.location.href);
+        if (matchingPreset) url.searchParams.set(URL_PRESET_PARAM, matchingPreset.id);
+        else url.searchParams.delete(URL_PRESET_PARAM);
+        if (pathsEl.value) url.searchParams.set(URL_PATHS_PARAM, pathsEl.value);
+        else url.searchParams.delete(URL_PATHS_PARAM);
+        if (url.toString() !== window.location.href) window.history.replaceState(null, "", url);
+      }
+
+      function scheduleRender() {
+        window.clearTimeout(renderTimer);
+        renderTimer = window.setTimeout(render, INPUT_SETTLE_MS);
+      }
+
+      function loadPreset(id) {
+        const preset = getPresetById(id);
+        if (!preset) return;
+        presetEl.value = preset.id;
+        choicesEl.value = preset.choices;
+        pathsEl.value = preset.paths;
+        render();
+      }
+
+      function getEdgePoints(layoutEdge, nodeMap) {
+        const section = layoutEdge?.sections?.[0];
+        if (section?.startPoint && section?.endPoint) {
+          return [section.startPoint, ...(section.bendPoints || []), section.endPoint];
+        }
+        const source = nodeMap.get(layoutEdge?.sources?.[0]);
+        const target = nodeMap.get(layoutEdge?.targets?.[0]);
+        if (!source || !target) return [];
+        return [
+          { x: source.x + source.width / 2, y: source.y + source.height },
+          { x: target.x + target.width / 2, y: target.y },
+        ];
+      }
+
+      function pathFromPoints(points) {
+        return points.map((point, index) => (index === 0 ? "M" : "L") + point.x + " " + point.y).join(" ");
+      }
+
+      async function layoutGraph(graph) {
+        const models = buildNodeModels(graph);
+        const elkGraph = {
+          id: "root",
+          layoutOptions: {
+            "elk.algorithm": "layered",
+            "elk.direction": "DOWN",
+            "elk.padding": "[left=40, top=36, right=40, bottom=36]",
+            "elk.spacing.nodeNode": "42",
+            "elk.layered.spacing.nodeNodeBetweenLayers": "112",
+            "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+            "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
+          },
+          children: models.nodeModels.map((node) => ({ id: node.id, width: node.width, height: node.height })),
+          edges: models.baseEdges.map((edge) => ({ id: edge.id, sources: [edge.source], targets: [edge.target] })),
+        };
+        const layout = await elk.layout(elkGraph);
+        const positioned = new Map((layout.children || []).map((node) => [node.id, node]));
+        const nodeModels = models.nodeModels.map((node) => ({ ...node, ...(positioned.get(node.id) || { x: 0, y: 0 }) }));
+        const layoutEdges = new Map((layout.edges || []).map((edge) => [edge.id, edge]));
+        return { layout, nodeModels, baseEdges: models.baseEdges, layoutEdges };
+      }
+
+      function renderSummary(summary) {
+        clear(summaryEl);
+        summaryEl.append(
+          pill(summary.totalNodes + " nodes", "pill"),
+          pill(summary.totalEdges + " choices", "pill"),
+          pill(summary.endingCount + " endings reached", "pill pill-accent"),
+          pill(summary.inProgressCount + " still in progress", "pill"),
+          pill(summary.invalidCount + " invalid", "pill pill-warning"),
+        );
+      }
+
+      function renderErrors(errors) {
+        clear(errorsEl);
+        if (errors.length === 0) {
+          errorsEl.hidden = true;
+          return;
+        }
+        errorsEl.hidden = false;
+        const title = document.createElement("h3");
+        title.textContent = "DSL parse errors";
+        const list = document.createElement("ul");
+        for (const error of errors) {
+          const item = document.createElement("li");
+          item.textContent = error;
+          list.append(item);
+        }
+        errorsEl.append(title, list);
+      }
+
+      function renderPathList(traces) {
+        clear(pathListEl);
+        for (let index = 0; index < traces.length; index += 1) {
+          const trace = traces[index];
+          const row = document.createElement("div");
+          row.className = "path-pill";
+          const swatch = document.createElement("span");
+          swatch.className = "swatch";
+          swatch.style.background = getPathColor(index);
+          const code = document.createElement("code");
+          code.textContent = trace.raw;
+          row.append("Path " + (index + 1), swatch, code, trace.message);
+          pathListEl.append(row);
+        }
+      }
+
+      function renderDiagram(layoutState, summary, traces) {
+        clear(mapEl);
+        const width = Math.max(960, Math.ceil(layoutState.layout.width || 960));
+        const height = Math.max(640, Math.ceil(layoutState.layout.height || 640));
+        const nodesById = new Map(layoutState.nodeModels.map((node) => [node.id, node]));
+        currentNodes = nodesById;
+        mapEl.setAttribute("viewBox", "0 0 " + width + " " + height);
+        mapEl.setAttribute("width", String(width));
+        mapEl.setAttribute("height", String(height));
+
+        const defs = svg("defs");
+        const marker = svg("marker");
+        marker.setAttribute("id", "arrow-base");
+        marker.setAttribute("markerWidth", "10");
+        marker.setAttribute("markerHeight", "10");
+        marker.setAttribute("refX", "8");
+        marker.setAttribute("refY", "3");
+        marker.setAttribute("orient", "auto");
+        marker.setAttribute("markerUnits", "strokeWidth");
+        const markerPath = svg("path");
+        markerPath.setAttribute("d", "M0,0 L0,6 L9,3 z");
+        markerPath.setAttribute("fill", "rgb(110 110 120 / 0.5)");
+        marker.append(markerPath);
+        defs.append(marker);
+        mapEl.append(defs);
+
+        const bg = svg("rect");
+        bg.setAttribute("width", String(width));
+        bg.setAttribute("height", String(height));
+        bg.setAttribute("fill", "white");
+        mapEl.append(bg);
+
+        const edgeLayer = svg("g");
+        const traceLayer = svg("g");
+        const nodeLayer = svg("g");
+        mapEl.append(edgeLayer, traceLayer, nodeLayer);
+
+        for (const edge of layoutState.baseEdges) {
+          const layoutEdge = layoutState.layoutEdges.get(edge.id);
+          const points = getEdgePoints(layoutEdge, nodesById);
+          if (points.length === 0) continue;
+          const count = summary.edgeCounts.get(edge.id) || 0;
+          const stroke = getBaseEdgeColor(count);
+          const path = svg("path");
+          path.setAttribute("class", "edge");
+          path.setAttribute("d", pathFromPoints(points));
+          path.setAttribute("stroke", stroke);
+          path.setAttribute("stroke-width", count > 0 ? "3" : "2");
+          path.setAttribute("marker-end", "url(#arrow-base)");
+          edgeLayer.append(path);
+          const mid = points[Math.floor(points.length / 2)];
+          const label = svg("text");
+          label.setAttribute("class", "edge-label");
+          label.setAttribute("x", String(mid.x + 6));
+          label.setAttribute("y", String(mid.y - 6));
+          label.textContent = edge.marker;
+          edgeLayer.append(label);
+        }
+
+        for (let traceIndex = 0; traceIndex < traces.length; traceIndex += 1) {
+          const trace = traces[traceIndex];
+          const color = getPathColor(traceIndex);
+          for (const key of trace.edgeKeys) {
+            const layoutEdge = layoutState.layoutEdges.get(key);
+            if (!layoutEdge) continue;
+            const points = getEdgePoints(layoutEdge, nodesById);
+            if (points.length === 0) continue;
+            const path = svg("path");
+            path.setAttribute("class", "edge");
+            path.setAttribute("d", pathFromPoints(points));
+            path.setAttribute("stroke", color);
+            path.setAttribute("stroke-width", "4");
+            path.setAttribute("opacity", trace.status === "invalid" ? "0.5" : "0.92");
+            traceLayer.append(path);
+          }
+        }
+
+        for (const node of layoutState.nodeModels) {
+          const group = svg("g");
+          const nodeCount = getNodeCount(summary, node.nodeId);
+          const endingCount = getEndingCount(summary, node.nodeId);
+          group.setAttribute("class", "svg-node" + (node.kind === "ending" ? " is-ending" : "") + (nodeCount > 0 ? " is-visited" : "") + (endingCount > 0 ? " is-hit" : ""));
+          group.setAttribute("transform", "translate(" + node.x + " " + node.y + ")");
+          group.setAttribute("role", "button");
+          group.setAttribute("tabindex", "0");
+          group.addEventListener("click", () => openModal(node));
+          group.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              openModal(node);
+            }
+          });
+          const rect = svg("rect");
+          rect.setAttribute("width", String(node.width));
+          rect.setAttribute("height", String(node.height));
+          rect.setAttribute("rx", node.kind === "ending" ? "24" : "16");
+          group.append(rect);
+          const eyebrow = svg("text");
+          eyebrow.setAttribute("class", "node-eyebrow");
+          eyebrow.setAttribute("x", "14");
+          eyebrow.setAttribute("y", "22");
+          eyebrow.textContent = (node.kind === "ending" ? "ENDING " : "EVENT ") + node.nodeId;
+          group.append(eyebrow);
+          for (let index = 0; index < node.previewLines.length; index += 1) {
+            const line = svg("text");
+            line.setAttribute("class", "node-title");
+            line.setAttribute("x", "14");
+            line.setAttribute("y", String(48 + index * NODE_TEXT_LINE_HEIGHT));
+            line.textContent = node.previewLines[index];
+            group.append(line);
+          }
+          if (nodeCount > 0 || endingCount > 0) {
+            const count = svg("text");
+            count.setAttribute("class", "node-count");
+            count.setAttribute("x", "14");
+            count.setAttribute("y", String(node.height - 14));
+            count.textContent = nodeCount > 0 ? formatCountLabel(nodeCount, "path") : formatCountLabel(endingCount, "hit");
+            group.append(count);
+          }
+          nodeLayer.append(group);
+        }
+      }
+
+      function openModal(node) {
+        modalKickerEl.textContent = node.detail.kicker;
+        modalTitleEl.textContent = node.detail.title;
+        clear(modalBodyEl);
+        if (node.detail.body) {
+          const p = document.createElement("p");
+          p.textContent = node.detail.body;
+          modalBodyEl.append(p);
+        }
+        if (node.detail.choices.length > 0) {
+          const title = document.createElement("h4");
+          title.textContent = "Choices";
+          const list = document.createElement("ol");
+          list.className = "modal-list";
+          for (const choice of node.detail.choices) {
+            const item = document.createElement("li");
+            const code = document.createElement("code");
+            code.textContent = choice.marker + "(" + choice.targetId + ")";
+            item.append(code, ". " + choice.text);
+            list.append(item);
+          }
+          modalBodyEl.append(title, list);
+        }
+        modalEl.showModal();
+      }
+
+      async function render() {
+        const version = ++renderVersion;
+        syncUrl();
+        statusEl.textContent = "";
+        const parsed = parseChoiceDsl(choicesEl.value);
+        renderErrors(parsed.errors);
+        if (!parsed.ok) {
+          clear(summaryEl);
+          clear(pathListEl);
+          clear(mapEl);
+          saveSvgEl.disabled = true;
+          return;
+        }
+
+        const pathInputs = parsePathInputs(pathsEl.value);
+        const traces = pathInputs.map((entry) => tracePath(parsed.graph, entry));
+        const summary = summarizeTraces(parsed.graph, traces);
+        renderSummary(summary);
+        renderPathList(traces);
+        loadingEl.hidden = false;
+        saveSvgEl.disabled = true;
+        try {
+          const layoutState = await layoutGraph(parsed.graph);
+          if (version !== renderVersion) return;
+          renderDiagram(layoutState, summary, traces);
+          saveSvgEl.disabled = false;
+        } catch (error) {
+          if (version === renderVersion) statusEl.textContent = "Graph layout failed.";
+          console.error(error);
+        } finally {
+          if (version === renderVersion) loadingEl.hidden = true;
+        }
+      }
+
+      function saveSvg() {
+        const clone = mapEl.cloneNode(true);
+        clone.setAttribute("xmlns", svgNS);
+        const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.download = "gamebook-map.svg";
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
+      const initialState = getInitialViewerState();
+      for (const preset of CHOICE_PRESETS) {
+        const option = document.createElement("option");
+        option.value = preset.id;
+        option.textContent = preset.label + " - " + preset.description;
+        presetEl.append(option);
+      }
+      presetEl.value = initialState.presetPickerId;
+      choicesEl.value = initialState.choices;
+      pathsEl.value = initialState.paths;
+      loadPresetEl.addEventListener("click", () => loadPreset(presetEl.value));
+      choicesEl.addEventListener("input", scheduleRender);
+      pathsEl.addEventListener("input", scheduleRender);
+      saveSvgEl.addEventListener("click", saveSvg);
+      closeModalEl.addEventListener("click", () => modalEl.close());
+      window.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && modalEl.open) modalEl.close();
+      });
+      render();
+    </script>
+  </body>
+</html>

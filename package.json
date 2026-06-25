@@ -1,0 +1,16 @@
+{
+  "name": "tools.carter.works",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.8.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public --project-name tools-carter-works"
+  },
+  "devDependencies": {
+    "wrangler": "4.102.0"
+  }
+}

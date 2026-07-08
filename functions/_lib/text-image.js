@@ -1,39 +1,53 @@
+// @ts-check
+
 import { render } from "takumi-js";
 import { container, googleFont, text } from "takumi-js/helpers";
 
-const CACHE_VERSION = "v1";
-const MAX_TEXT_LENGTH = 180;
-const MAX_LABEL_LENGTH = 40;
+/** @typedef {"left" | "center" | "right"} Alignment */
+/**
+ * @typedef {object} RenderParams
+ * @property {string} text
+ * @property {string} font
+ * @property {Alignment} align
+ * @property {string} bg
+ * @property {string} color
+ * @property {number} w
+ * @property {number} h
+ * @property {number} size
+ * @property {number} pad
+ */
+/**
+ * @typedef {object} LoadedFont
+ * @property {string} family
+ * @property {import("takumi-js").FontLoader[]} fonts
+ */
 
-const FONTS = {
-  Inter: { weight: [400, 800], renderWeight: 800 },
-  Bangers: { weight: 400, renderWeight: 400 },
-  "JetBrains Mono": { weight: [400, 800], renderWeight: 800 },
-  "Rubik Glitch": { weight: 400, renderWeight: 400 },
-  Oswald: { weight: [400, 700], renderWeight: 700 },
-};
+const CACHE_VERSION = "v3";
+const MAX_TEXT_LENGTH = 180;
+const DEFAULT_FONT = "Inter";
 
 const ALIGNMENTS = new Set(["left", "center", "right"]);
 
-export async function textImage(request, preset = {}) {
+/**
+ * @param {Request} request
+ * @returns {Promise<Response>}
+ */
+export async function textImage(request) {
   try {
-    const params = normalizeParams(new URL(request.url).searchParams, preset);
+    const params = normalizeParams(new URL(request.url).searchParams);
+    const defaultCache = cloudflareDefaultCache();
     const cacheRequest = new Request(normalizedCacheUrl(request.url, params), request);
-    const cached = await caches.default.match(cacheRequest);
+    const cached = await defaultCache.match(cacheRequest);
 
     if (cached) {
       return cached;
     }
 
-    const fontConfig = FONTS[params.font];
-    const png = await render(renderTree(params, fontConfig), {
+    const loadedFont = await loadFont(params.font);
+    const png = await render(renderTree({ ...params, font: loadedFont.family }), {
       width: params.w,
       height: params.h,
-      fonts: await googleFont(params.font, {
-        weight: fontConfig.weight,
-        text: params.text,
-        display: "swap",
-      }),
+      fonts: loadedFont.fonts,
       emoji: "from-font",
     });
     const response = new Response(png, {
@@ -43,7 +57,7 @@ export async function textImage(request, preset = {}) {
       },
     });
 
-    await caches.default.put(cacheRequest, response.clone());
+    await defaultCache.put(cacheRequest, response.clone());
     return response;
   } catch (error) {
     if (error instanceof Response) {
@@ -55,50 +69,19 @@ export async function textImage(request, preset = {}) {
   }
 }
 
-export function incidentPreset(searchParams) {
-  const service = label(searchParams.get("service"), "deploys");
-  const cause = label(searchParams.get("cause"), "entropy");
-
-  return {
-    text: `SEV-2: ${service} was defeated by ${cause}`,
-    bg: "111827",
-    color: "fb7185",
-    font: "Oswald",
-  };
+/**
+ * @returns {Cache}
+ */
+function cloudflareDefaultCache() {
+  return /** @type {CacheStorage & { default: Cache }} */ (caches).default;
 }
 
-export function oraclePreset(searchParams) {
-  const repo = label(searchParams.get("repo"), "main");
-  const prophecies = [
-    "CI will pass after 3 unrelated flakes",
-    "the cache is haunted but correct",
-    "one line fixes it, nobody knows why",
-    "the rollback will be called a migration",
-    "types will reveal the betrayal",
-  ];
-
-  return {
-    text: `${repo}: ${prophecies[hash(repo) % prophecies.length]}`,
-    bg: "0f172a",
-    color: "38bdf8",
-    font: "Bangers",
-  };
-}
-
-export function blamePreset(searchParams) {
-  const user = label(searchParams.get("user"), "someone");
-  const reason = label(searchParams.get("reason"), "force-pushed");
-
-  return {
-    text: `${user} did it: ${reason}`,
-    bg: "facc15",
-    color: "111827",
-    font: "Rubik Glitch",
-  };
-}
-
-function normalizeParams(searchParams, preset) {
-  const textValue = firstText(searchParams.get("text"), preset.text);
+/**
+ * @param {URLSearchParams} searchParams
+ * @returns {RenderParams}
+ */
+function normalizeParams(searchParams) {
+  const textValue = firstText(searchParams.get("text"));
 
   if (!textValue) {
     throw jsonError("missing_text", 400);
@@ -106,10 +89,10 @@ function normalizeParams(searchParams, preset) {
 
   return {
     text: textValue.slice(0, MAX_TEXT_LENGTH),
-    font: FONTS[searchParams.get("font")] ? searchParams.get("font") : preset.font ?? "Inter",
-    align: ALIGNMENTS.has(searchParams.get("align")) ? searchParams.get("align") : "center",
-    bg: hex(searchParams.get("bg"), preset.bg ?? "111827"),
-    color: hex(searchParams.get("color"), preset.color ?? "facc15"),
+    font: fontFamily(searchParams.get("font"), DEFAULT_FONT),
+    align: alignment(searchParams.get("align")),
+    bg: hex(searchParams.get("bg"), "111827"),
+    color: hex(searchParams.get("color"), "facc15"),
     w: integer(searchParams.get("w"), 1200, 320, 1600),
     h: integer(searchParams.get("h"), 630, 180, 1200),
     size: integer(searchParams.get("size"), 0, 24, 180),
@@ -117,12 +100,17 @@ function normalizeParams(searchParams, preset) {
   };
 }
 
-function renderTree(params, fontConfig) {
-  const justifyContent = {
+/**
+ * @param {RenderParams} params
+ * @returns {import("takumi-js").Node}
+ */
+function renderTree(params) {
+  /** @type {Record<Alignment, string>} */
+  const justifyContentByAlignment = {
     left: "flex-start",
     center: "center",
     right: "flex-end",
-  }[params.align];
+  };
   const fontSize = params.size || autoFontSize(params);
 
   return container({
@@ -131,7 +119,7 @@ function renderTree(params, fontConfig) {
       height: "100%",
       display: "flex",
       alignItems: "center",
-      justifyContent,
+      justifyContent: justifyContentByAlignment[params.align],
       padding: params.pad,
       backgroundColor: `#${params.bg}`,
     },
@@ -141,22 +129,29 @@ function renderTree(params, fontConfig) {
         color: `#${params.color}`,
         fontFamily: params.font,
         fontSize,
-        fontWeight: fontConfig.renderWeight,
+        fontWeight: 400,
         lineHeight: 0.95,
         overflowWrap: "break-word",
         textAlign: params.align,
-        textTransform: "uppercase",
       }),
     ],
   });
 }
 
+/**
+ * @param {string} rawUrl
+ * @param {RenderParams} params
+ * @returns {string}
+ */
 function normalizedCacheUrl(rawUrl, params) {
   const url = new URL(rawUrl);
   const normalized = new URL(url.origin + url.pathname);
 
-  for (const key of ["text", "font", "align", "bg", "color", "w", "h", "size", "pad"]) {
-    normalized.searchParams.set(key, params[key]);
+  /** @type {(keyof RenderParams)[]} */
+  const cacheKeys = ["text", "font", "align", "bg", "color", "w", "h", "size", "pad"];
+
+  for (const key of cacheKeys) {
+    normalized.searchParams.set(key, String(params[key]));
   }
 
   normalized.searchParams.set("v", CACHE_VERSION);
@@ -164,16 +159,32 @@ function normalizedCacheUrl(rawUrl, params) {
   return normalized.toString();
 }
 
+/**
+ * @param {...(string | null | undefined)} values
+ * @returns {string | undefined}
+ */
 function firstText(...values) {
   return values.find((value) => value && value.trim())?.trim();
 }
 
+/**
+ * @param {string | null} value
+ * @param {string} fallback
+ * @returns {string}
+ */
 function hex(value, fallback) {
   const normalized = value?.replace(/^#/, "");
 
   return /^[0-9a-f]{6}$/i.test(normalized) ? normalized.toLowerCase() : fallback;
 }
 
+/**
+ * @param {string | null} value
+ * @param {number} fallback
+ * @param {number} min
+ * @param {number} max
+ * @returns {number}
+ */
 function integer(value, fallback, min, max) {
   const parsed = Number.parseInt(value, 10);
 
@@ -184,6 +195,45 @@ function integer(value, fallback, min, max) {
   return Math.min(max, Math.max(min, parsed));
 }
 
+/**
+ * @param {string | null} value
+ * @returns {Alignment}
+ */
+function alignment(value) {
+  return typeof value === "string" && ALIGNMENTS.has(value) ? /** @type {Alignment} */ (value) : "center";
+}
+
+/**
+ * @param {string | null} value
+ * @param {string} fallback
+ * @returns {string}
+ */
+function fontFamily(value, fallback) {
+  const normalized = (value?.trim() || fallback).replace(/\s+/g, " ").slice(0, 64);
+
+  return /^[A-Za-z0-9][A-Za-z0-9 .,'-]*$/.test(normalized) ? normalized : DEFAULT_FONT;
+}
+
+/**
+ * @param {string} family
+ * @returns {Promise<LoadedFont>}
+ */
+async function loadFont(family) {
+  try {
+    return { family, fonts: await googleFont(family, { weight: 400, display: "swap" }) };
+  } catch (error) {
+    if (family === DEFAULT_FONT) {
+      throw error;
+    }
+
+    return { family: DEFAULT_FONT, fonts: await googleFont(DEFAULT_FONT, { weight: 400, display: "swap" }) };
+  }
+}
+
+/**
+ * @param {RenderParams} params
+ * @returns {number}
+ */
 function autoFontSize({ text: value, w, h, pad }) {
   const usableWidth = w - pad * 2;
   const usableHeight = h - pad * 2;
@@ -193,20 +243,11 @@ function autoFontSize({ text: value, w, h, pad }) {
   return Math.round(Math.min(180, Math.max(24, Math.min(byWidth, byHeight))));
 }
 
-function label(value, fallback) {
-  return (value?.trim() || fallback).slice(0, MAX_LABEL_LENGTH);
-}
-
-function hash(value) {
-  let result = 0;
-
-  for (let index = 0; index < value.length; index += 1) {
-    result = (result * 31 + value.charCodeAt(index)) >>> 0;
-  }
-
-  return result;
-}
-
+/**
+ * @param {string} code
+ * @param {number} status
+ * @returns {Response}
+ */
 function jsonError(code, status) {
   return new Response(JSON.stringify({ error: code }), {
     status,

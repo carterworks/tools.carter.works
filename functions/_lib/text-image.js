@@ -22,7 +22,7 @@ import { container, googleFont, text } from "takumi-js/helpers";
  * @property {import("takumi-js").FontLoader[]} fonts
  */
 
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const MAX_TEXT_LENGTH = 180;
 const DEFAULT_FONT = "Inter";
 
@@ -43,7 +43,7 @@ export async function textImage(request) {
       return cached;
     }
 
-    const loadedFont = await loadFont(params.font);
+    const loadedFont = await loadFont(params.font, params.text);
     const png = await render(renderTree({ ...params, font: loadedFont.family }), {
       width: params.w,
       height: params.h,
@@ -216,17 +216,18 @@ function fontFamily(value, fallback) {
 
 /**
  * @param {string} family
+ * @param {string} value
  * @returns {Promise<LoadedFont>}
  */
-async function loadFont(family) {
+async function loadFont(family, value) {
   try {
-    return { family, fonts: await googleFont(family, { weight: 400, display: "swap" }) };
+    return { family, fonts: await googleFont(family, { weight: 400, text: value, display: "swap" }) };
   } catch (error) {
     if (family === DEFAULT_FONT) {
       throw error;
     }
 
-    return { family: DEFAULT_FONT, fonts: await googleFont(DEFAULT_FONT, { weight: 400, display: "swap" }) };
+    return { family: DEFAULT_FONT, fonts: await googleFont(DEFAULT_FONT, { weight: 400, text: value, display: "swap" }) };
   }
 }
 

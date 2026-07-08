@@ -12,5 +12,8 @@
   },
   "devDependencies": {
     "wrangler": "4.102.0"
+  },
+  "dependencies": {
+    "takumi-js": "^1.8.7"
   }
 }

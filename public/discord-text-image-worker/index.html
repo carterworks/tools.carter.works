@@ -3,471 +3,150 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#111827">
-    <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" content="#fdf6e3">
+    <meta name="color-scheme" content="light dark">
     <link rel="canonical" href="https://tools.carter.works/discord-text-image-worker/">
     <link rel="icon" href="https://carter.works/favicon.svg" type="image/svg+xml">
     <title>Discord Text Image Worker | tools.carter.works</title>
-    <meta name="description" content="A URL-configured Takumi image service made for casual programmer Discord channels.">
+    <meta name="description" content="Make a text image URL for Discord unfurls.">
     <meta property="og:title" content="Discord Text Image Worker">
-    <meta property="og:description" content="A URL-configured image endpoint for Discord, powered by Cloudflare Workers and takumi-js.">
+    <meta property="og:description" content="Make a text image URL for Discord unfurls.">
     <meta property="og:url" content="https://tools.carter.works/discord-text-image-worker/">
     <meta property="og:type" content="website">
-    <style>
-      :root {
-        --bg: #0b1020;
-        --panel: #111827;
-        --panel-2: #172033;
-        --text: #f8fafc;
-        --muted: #a7b0c3;
-        --line: rgb(255 255 255 / 0.13);
-        --accent: #a3e635;
-        --accent-2: #38bdf8;
-        --danger: #fb7185;
-        --shadow: rgb(0 0 0 / 0.35);
-        --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      html {
-        color-scheme: dark light;
-      }
-
-      body {
-        margin: 0;
-        color: var(--text);
-        background:
-          radial-gradient(circle at top left, rgb(56 189 248 / 0.25), transparent 34rem),
-          radial-gradient(circle at 85% 8rem, rgb(163 230 53 / 0.16), transparent 32rem),
-          linear-gradient(180deg, #0b1020 0%, #111827 54%, #060812 100%);
-        font-family: var(--font-sans);
-        line-height: 1.55;
-      }
-
-      a,
-      a:visited {
-        color: inherit;
-      }
-
-      code {
-        border: 1px solid var(--line);
-        border-radius: 0.35rem;
-        padding: 0.1rem 0.35rem;
-        background: rgb(255 255 255 / 0.06);
-        font-family: var(--font-mono);
-        font-size: 0.9em;
-      }
-
-      pre {
-        overflow-x: auto;
-        margin: 0;
-        border: 1px solid var(--line);
-        border-radius: 1rem;
-        padding: 1rem;
-        background: rgb(0 0 0 / 0.28);
-        box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
-      }
-
-      pre code {
-        border: 0;
-        padding: 0;
-        background: transparent;
-      }
-
-      main {
-        width: min(1120px, calc(100% - 2rem));
-        margin: 0 auto;
-        padding: 1rem 0 4rem;
-      }
-
-      .back-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        margin: 1rem 0 2rem;
-        color: var(--muted);
-        font-size: 0.95rem;
-      }
-
-      .hero {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.72fr);
-        gap: 1.5rem;
-        align-items: stretch;
-        margin-bottom: 1.5rem;
-      }
-
-      .hero-copy,
-      .preview,
-      .card {
-        border: 1px solid var(--line);
-        border-radius: 1.5rem;
-        background: linear-gradient(180deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.045));
-        box-shadow: 0 1.5rem 4rem var(--shadow);
-      }
-
-      .hero-copy {
-        padding: clamp(1.25rem, 4vw, 3rem);
-      }
-
-      .eyebrow {
-        margin: 0 0 0.75rem;
-        color: var(--accent);
-        font-family: var(--font-mono);
-        font-size: 0.8rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-      }
-
-      h1,
-      h2,
-      h3 {
-        margin: 0;
-        line-height: 1.05;
-      }
-
-      h1 {
-        max-width: 13ch;
-        font-size: clamp(3rem, 10vw, 6.8rem);
-        letter-spacing: -0.08em;
-      }
-
-      h2 {
-        font-size: clamp(1.6rem, 4vw, 2.6rem);
-        letter-spacing: -0.045em;
-      }
-
-      h3 {
-        font-size: 1.05rem;
-      }
-
-      .lede {
-        max-width: 43rem;
-        margin: 1.25rem 0 0;
-        color: var(--muted);
-        font-size: clamp(1.05rem, 2vw, 1.35rem);
-      }
-
-      .preview {
-        display: grid;
-        min-height: 28rem;
-        padding: 1rem;
-        place-items: center;
-      }
-
-      .fake-image {
-        display: grid;
-        width: 100%;
-        aspect-ratio: 1.91 / 1;
-        place-items: center;
-        border: 1px solid rgb(250 204 21 / 0.35);
-        border-radius: 1rem;
-        padding: clamp(1rem, 4vw, 2rem);
-        color: #facc15;
-        background:
-          linear-gradient(135deg, rgb(250 204 21 / 0.12), transparent 38%),
-          repeating-linear-gradient(0deg, rgb(255 255 255 / 0.035) 0 1px, transparent 1px 8px),
-          #111827;
-        text-align: center;
-        text-transform: uppercase;
-        box-shadow: inset 0 0 0 0.5rem rgb(0 0 0 / 0.16);
-      }
-
-      .fake-image strong {
-        max-width: 11ch;
-        font-size: clamp(2.3rem, 7vw, 5.8rem);
-        line-height: 0.88;
-        letter-spacing: -0.07em;
-      }
-
-      .fake-image span {
-        align-self: end;
-        color: rgb(248 250 252 / 0.62);
-        font-family: var(--font-mono);
-        font-size: 0.72rem;
-        letter-spacing: 0.08em;
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(12, 1fr);
-        gap: 1rem;
-      }
-
-      .card {
-        padding: clamp(1rem, 3vw, 1.5rem);
-      }
-
-      .wide {
-        grid-column: span 12;
-      }
-
-      .half {
-        grid-column: span 6;
-      }
-
-      .third {
-        grid-column: span 4;
-      }
-
-      .card h2,
-      .card h3 {
-        margin-bottom: 0.8rem;
-      }
-
-      .card p {
-        margin: 0.7rem 0 0;
-        color: var(--muted);
-      }
-
-      .card p:first-child {
-        margin-top: 0;
-      }
-
-      .list {
-        display: grid;
-        gap: 0.65rem;
-        margin: 1rem 0 0;
-        padding: 0;
-        list-style: none;
-      }
-
-      .list li {
-        border: 1px solid var(--line);
-        border-radius: 0.85rem;
-        padding: 0.8rem;
-        background: rgb(0 0 0 / 0.18);
-      }
-
-      .numbered {
-        display: grid;
-        gap: 0.8rem;
-        margin: 1rem 0 0;
-        padding: 0;
-        list-style: none;
-        counter-reset: steps;
-      }
-
-      .numbered li {
-        position: relative;
-        min-height: 3rem;
-        border: 1px solid var(--line);
-        border-radius: 1rem;
-        padding: 0.9rem 0.9rem 0.9rem 3.6rem;
-        background: rgb(0 0 0 / 0.18);
-        counter-increment: steps;
-      }
-
-      .numbered li::before {
-        position: absolute;
-        top: 0.85rem;
-        left: 0.85rem;
-        display: grid;
-        width: 2rem;
-        height: 2rem;
-        place-items: center;
-        border-radius: 999px;
-        color: #0b1020;
-        background: var(--accent);
-        content: counter(steps);
-        font-family: var(--font-mono);
-        font-weight: 800;
-      }
-
-      .tag-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-top: 1rem;
-      }
-
-      .tag {
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 0.3rem 0.65rem;
-        color: var(--text);
-        background: rgb(255 255 255 / 0.06);
-        font-family: var(--font-mono);
-        font-size: 0.78rem;
-      }
-
-      .callout {
-        border-color: rgb(163 230 53 / 0.35);
-        background: linear-gradient(180deg, rgb(163 230 53 / 0.12), rgb(255 255 255 / 0.04));
-      }
-
-      .risk {
-        border-color: rgb(251 113 133 / 0.38);
-      }
-
-      .accent {
-        color: var(--accent);
-      }
-
-      .blue {
-        color: var(--accent-2);
-      }
-
-      @media (max-width: 860px) {
-        main {
-          width: min(100% - 1rem, 44rem);
-        }
-
-        .hero {
-          grid-template-columns: 1fr;
-        }
-
-        .preview {
-          min-height: auto;
-        }
-
-        .half,
-        .third {
-          grid-column: span 12;
-        }
-      }
-    </style>
   </head>
   <body>
     <main>
-      <a class="back-link" href="/"><span aria-hidden="true">&larr;</span> Tools index</a>
+      <p><a href="/">Tools</a></p>
 
-      <section class="hero" aria-labelledby="title">
-        <div class="hero-copy">
-          <p class="eyebrow">Live Worker</p>
-          <h1 id="title">Discord Text Image Worker</h1>
-          <p class="lede">
-            A URL-configured image endpoint for ultra-casual programmer Discord channels. Paste a link, get a rendered PNG with big dumb text, chosen fonts, colors, and enough guardrails to keep the edge from catching fire.
-          </p>
-          <div class="tag-row" aria-label="Project tags">
-            <span class="tag">Cloudflare Workers</span>
-            <span class="tag">takumi-js/wasm</span>
-            <span class="tag">Google Fonts</span>
-            <span class="tag">Discord unfurls</span>
-          </div>
-        </div>
+      <header>
+        <h1>Discord Text Image Worker</h1>
+        <p>Make a shareable image URL from text.</p>
+      </header>
 
-        <aside class="preview" aria-label="Example generated image">
-          <div class="fake-image">
-            <strong>The build has chosen violence</strong>
-            <span>tools.carter.works/text</span>
-          </div>
-        </aside>
-      </section>
+      <form id="controls">
+        <p>
+          <label for="content">Content</label><br>
+          <input id="content" name="content" type="text" maxlength="180" size="48" value="THE BUILD HAS CHOSEN VIOLENCE">
+        </p>
 
-      <section class="grid">
-        <article class="card wide callout">
-          <h2>Live endpoint</h2>
-          <p>
-            This tiny Worker returns actual PNG responses from URL params. The first version only renders text, but it works well in Discord: short links, bold presets, predictable output, and cacheable results.
-          </p>
-          <pre><code>https://tools.carter.works/text?text=THE%20BUILD%20HAS%20CHOSEN%20VIOLENCE&amp;font=Bangers&amp;align=center&amp;bg=111827&amp;color=facc15</code></pre>
-        </article>
+        <p>
+          <label for="font">Font</label><br>
+          <input id="font" name="font" type="text" maxlength="64" size="32" value="Bangers">
+        </p>
 
-        <article class="card half">
-          <h2>Why a Worker?</h2>
-          <ul class="list">
-            <li>Discord needs a real image URL. Client-side canvas does not help an unfurler.</li>
-            <li>The same URL can be cached at the edge after the first render.</li>
-            <li>Inputs can be clamped and normalized before rendering.</li>
-            <li>Future webhook versions can use secrets without exposing them to browsers.</li>
-          </ul>
-        </article>
+        <p>
+          <label for="align">Alignment</label><br>
+          <select id="align" name="align">
+            <option value="left">left</option>
+            <option value="center" selected>center</option>
+            <option value="right">right</option>
+          </select>
+        </p>
 
-        <article class="card half">
-          <h2>Text endpoint</h2>
-          <pre><code>GET /text
+        <p>
+          <label for="bg">Background</label><br>
+          <input id="bg" name="bg" type="text" maxlength="6" size="8" value="111827">
+        </p>
 
-Params:
-text   required, max 180 chars
-font   allowlisted Google Font
-align  left | center | right
-bg     6-digit hex
-color  6-digit hex
-w      320..1600, default 1200
-h      180..1200, default 630
-size   24..180, default auto
-pad    16..160, default 72</code></pre>
-        </article>
+        <p>
+          <label for="color">Text color</label><br>
+          <input id="color" name="color" type="text" maxlength="6" size="8" value="facc15">
+        </p>
 
-        <article class="card third">
-          <h3>Preset: incident</h3>
-          <p><code>/incident?service=auth&amp;cause=regex</code></p>
-          <p>Renders a fake outage card: <span class="accent">SEV-2: auth was defeated by regex</span>.</p>
-        </article>
+        <p>
+          <label for="w">Width</label><br>
+          <input id="w" name="w" type="number" min="320" max="1600" value="1200">
+        </p>
 
-        <article class="card third">
-          <h3>Preset: oracle</h3>
-          <p><code>/oracle?repo=frontend</code></p>
-          <p>Returns a deterministic prophecy: <span class="blue">CI will pass after 3 unrelated flakes</span>.</p>
-        </article>
+        <p>
+          <label for="h">Height</label><br>
+          <input id="h" name="h" type="number" min="180" max="1200" value="630">
+        </p>
 
-        <article class="card third">
-          <h3>Preset: blame</h3>
-          <p><code>/blame?user=kyle&amp;reason=force-pushed</code></p>
-          <p>Makes a lightly cursed accountability poster for the channel.</p>
-        </article>
+        <p>
+          <label for="size">Font size</label><br>
+          <input id="size" name="size" type="number" min="24" max="180" placeholder="auto">
+        </p>
 
-        <article class="card wide">
-          <h2>Implemented flow</h2>
-          <ol class="numbered">
-            <li><strong>Parse params.</strong> Clamp image dimensions, text length, font size, padding, and colors before rendering.</li>
-            <li><strong>Normalize cache keys.</strong> Sort canonical params and include a template version so equivalent URLs share rendered output.</li>
-            <li><strong>Load fonts safely.</strong> Use an allowlist: <code>Inter</code>, <code>Bangers</code>, <code>JetBrains Mono</code>, <code>Rubik Glitch</code>, and <code>Oswald</code>.</li>
-            <li><strong>Render with Takumi.</strong> Build a small Takumi node tree for background, text color, alignment, wrapping, and typography.</li>
-            <li><strong>Cache rendered images.</strong> Store PNG responses in Cloudflare's cache and return long-lived immutable cache headers.</li>
-            <li><strong>Expose presets.</strong> Keep <code>/text</code> generic, with tiny route aliases for <code>/incident</code>, <code>/oracle</code>, and <code>/blame</code>.</li>
-          </ol>
-        </article>
+        <p>
+          <label for="pad">Padding</label><br>
+          <input id="pad" name="pad" type="number" min="16" max="160" value="72">
+        </p>
+      </form>
 
-        <article class="card half risk">
-          <h2>Limits</h2>
-          <p>
-            This is intentionally not a general image editor. Text is capped, dimensions are clamped, fonts are allowlisted, and bad optional params fall back to safe defaults. Missing text returns a small JSON error.
-          </p>
-        </article>
+      <p>
+        <img id="preview" alt="Generated text image preview" width="1200" height="630" style="max-width: 100%; height: auto; border: 1px solid currentColor;">
+      </p>
 
-        <article class="card half">
-          <h2>What works</h2>
-          <ul class="list">
-            <li>A pasted Discord URL unfurls as the generated PNG.</li>
-            <li>Same URL returns identical pixels and hits cache on repeat.</li>
-            <li>Bad params fall back or fail with a small JSON error.</li>
-            <li>The silly presets are deterministic, shareable, and safe to paste.</li>
-          </ul>
-        </article>
+      <p><a id="previewLink" href="/text">open image</a></p>
 
-        <article class="card wide">
-          <h2>Example render shape</h2>
-          <pre><code>render(
-  container({
-    style: {
-      width: "100%",
-      height: "100%",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: align === "left" ? "flex-start" : align === "right" ? "flex-end" : "center",
-      padding,
-      backgroundColor: `#${bg}`,
-    },
-    children: [text(value, {
-      color: `#${color}`,
-      fontFamily: font,
-      fontSize,
-      fontWeight: 800,
-      lineHeight: 0.95,
-      textAlign: align,
-    })],
-  }),
-  { width, height, fonts }
-)</code></pre>
-        </article>
-      </section>
+      <h2>API</h2>
+      <p><code>GET /text</code> returns a PNG.</p>
+      <pre><code>/text?text=hello&amp;font=Bangers&amp;align=center</code></pre>
+      <p><code>text</code> is required. <code>font</code> is any Google Font family name and falls back to <code>Inter</code> if it cannot load. <code>align</code> is <code>left</code>, <code>center</code>, or <code>right</code>.</p>
+      <p><code>bg</code> and <code>color</code> are six-digit hex values. <code>w</code>, <code>h</code>, <code>size</code>, and <code>pad</code> are clamped server-side.</p>
     </main>
+
+    <script>
+      // @ts-check
+
+      /**
+       * @template {Element} T
+       * @param {string} selector
+       * @returns {T}
+       */
+      function element(selector) {
+        const match = document.querySelector(selector);
+
+        if (!match) {
+          throw new Error(`Missing element: ${selector}`);
+        }
+
+        return /** @type {T} */ (match);
+      }
+
+      const content = /** @type {HTMLInputElement} */ (element("#content"));
+      const font = /** @type {HTMLInputElement} */ (element("#font"));
+      const align = /** @type {HTMLSelectElement} */ (element("#align"));
+      const bg = /** @type {HTMLInputElement} */ (element("#bg"));
+      const color = /** @type {HTMLInputElement} */ (element("#color"));
+      const w = /** @type {HTMLInputElement} */ (element("#w"));
+      const h = /** @type {HTMLInputElement} */ (element("#h"));
+      const size = /** @type {HTMLInputElement} */ (element("#size"));
+      const pad = /** @type {HTMLInputElement} */ (element("#pad"));
+      const controls = /** @type {HTMLFormElement} */ (element("#controls"));
+      const preview = /** @type {HTMLImageElement} */ (element("#preview"));
+      const previewLink = /** @type {HTMLAnchorElement} */ (element("#previewLink"));
+
+      function imageUrl() {
+        const params = new URLSearchParams({
+          text: content.value || " ",
+          font: font.value || "Inter",
+          align: align.value,
+          bg: bg.value || "111827",
+          color: color.value || "facc15",
+          w: w.value || "1200",
+          h: h.value || "630",
+          pad: pad.value || "72",
+        });
+
+        if (size.value) {
+          params.set("size", size.value);
+        }
+
+        return `/text?${params}`;
+      }
+
+      function updatePreview() {
+        const url = imageUrl();
+
+        preview.src = url;
+        previewLink.href = url;
+      }
+
+      controls.addEventListener("input", updatePreview);
+      align.addEventListener("change", updatePreview);
+      updatePreview();
+    </script>
   </body>
 </html>

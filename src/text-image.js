@@ -173,7 +173,7 @@ function firstText(...values) {
  * @returns {string}
  */
 function hex(value, fallback) {
-  const normalized = value?.replace(/^#/, "");
+  const normalized = value?.replace(/^#/, "") ?? "";
 
   return /^[0-9a-f]{6}$/i.test(normalized) ? normalized.toLowerCase() : fallback;
 }
@@ -186,7 +186,7 @@ function hex(value, fallback) {
  * @returns {number}
  */
 function integer(value, fallback, min, max) {
-  const parsed = Number.parseInt(value, 10);
+  const parsed = Number.parseInt(value ?? "", 10);
 
   if (!Number.isFinite(parsed)) {
     return fallback;

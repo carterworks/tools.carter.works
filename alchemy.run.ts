@@ -34,7 +34,7 @@ export default Alchemy.Stack(
         zoneId: zone.zoneId,
         name: "tools.carter.works",
         type: "CNAME",
-        content: "tools-carter-works.pages.dev",
+        content: "tools-carter-works.carterworks.workers.dev",
         proxied: true,
       }).pipe(adopt(true));
 

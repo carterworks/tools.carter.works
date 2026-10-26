@@ -1,7 +1,13 @@
 // @ts-check
 
-import { render } from "takumi-js";
+import wasm, { initSync, Renderer } from "takumi-js/wasm";
 import { container, googleFont, text } from "takumi-js/helpers";
+
+// Load the WASM backend explicitly because takumi-js's auto-loader emits a
+// bare dynamic import that Cloudflare Workers cannot resolve.
+initSync({ module: wasm });
+
+const renderer = new Renderer({ loadDefaultFonts: false });
 
 /** @typedef {"left" | "center" | "right"} Alignment */
 /**
@@ -44,13 +50,12 @@ export async function textImage(request) {
     }
 
     const loadedFont = await loadFont(params.font, params.text);
-    const png = await render(renderTree({ ...params, font: loadedFont.family }), {
+    await renderer.loadFonts(loadedFont.fonts);
+    const png = renderer.render(renderTree({ ...params, font: loadedFont.family }), {
       width: params.w,
       height: params.h,
-      fonts: loadedFont.fonts,
-      emoji: "from-font",
     });
-    const response = new Response(png, {
+    const response = new Response(new Uint8Array(png).buffer, {
       headers: {
         "Content-Type": "image/png",
         "Cache-Control": "public, max-age=31536000, immutable",

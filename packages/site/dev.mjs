@@ -1,8 +1,10 @@
 import { createServer } from "node:http";
-import { createReadStream, watch } from "node:fs";
+import { createReadStream, existsSync, watch } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { build } from "esbuild";
 import { render } from "takumi-js";
 import { getBuildInfo, renderBuildInfo } from "./build-info.mjs";
 import { sites } from "./routes.mjs";
@@ -11,6 +13,8 @@ const root = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 const port = Number(process.env.PORT ?? 3000);
 const textImageSrc = join(root, "packages", "text-image", "src");
 const textImageCache = new Map();
+const bundles = new Map();
+const packageJsons = new Map();
 const clients = new Set();
 
 const mimeTypes = {
@@ -83,6 +87,49 @@ function sendNotFound(response) {
   response.end("Not found");
 }
 
+async function getPackageJson(name) {
+  let packageJson = packageJsons.get(name);
+
+  if (!packageJson) {
+    packageJson = JSON.parse(
+      await readFile(join(root, "packages", name, "package.json"), "utf8"),
+    );
+    packageJsons.set(name, packageJson);
+  }
+
+  return packageJson;
+}
+
+async function sendModule(request, response, entry) {
+  let code = bundles.get(entry);
+
+  if (!code) {
+    const result = await build({
+      entryPoints: [entry],
+      bundle: true,
+      define: { "process.env.NODE_ENV": '"development"' },
+      format: "esm",
+      platform: "browser",
+      sourcemap: "inline",
+      target: "es2022",
+      write: false,
+    });
+    code = result.outputFiles?.[0]?.text ?? "";
+    bundles.set(entry, code);
+  }
+
+  response.writeHead(200, {
+    "Content-Type": "text/javascript; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+
+  if (request.method === "HEAD") {
+    response.end();
+  } else {
+    response.end(code);
+  }
+}
+
 async function sendStatic(request, response, url) {
   const route = matchRoute(url.pathname);
   if (!route) return sendNotFound(response);
@@ -105,6 +152,34 @@ async function sendStatic(request, response, url) {
   const publicDir = join(root, "packages", route.name, "public");
   const filePath = resolve(publicDir, relativePath);
   if (!filePath.startsWith(`${publicDir}${sep}`)) return sendNotFound(response);
+
+  if (relativePath === "main.js") {
+    const entry = join(root, "packages", route.name, "src", "main.js");
+    if (existsSync(entry)) {
+      await sendModule(request, response, entry);
+      return;
+    }
+  }
+
+  if (relativePath.endsWith(".js")) {
+    const packageJson = await getPackageJson(route.name);
+    const specifier = packageJson.staticAssets?.[relativePath];
+
+    if (specifier) {
+      const require = createRequire(join(root, "packages", route.name, "package.json"));
+      response.writeHead(200, {
+        "Content-Type": "text/javascript; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+
+      if (request.method === "HEAD") {
+        response.end();
+      } else {
+        createReadStream(require.resolve(specifier)).pipe(response);
+      }
+      return;
+    }
+  }
 
   let file;
   try {
@@ -187,6 +262,11 @@ function scheduleReload() {
 function watchSources() {
   const dirs = sites.map(([name]) => join(root, "packages", name, "public"));
   dirs.push(textImageSrc);
+  dirs.push(
+    ...sites
+      .map(([name]) => join(root, "packages", name, "src"))
+      .filter((dir) => dir !== textImageSrc && existsSync(dir)),
+  );
 
   return dirs.map((dir) =>
     watch(dir, { recursive: true }, (_event, filename) => {
@@ -196,6 +276,7 @@ function watchSources() {
         textImageCache.clear();
       }
 
+      bundles.clear();
       scheduleReload();
     }),
   );

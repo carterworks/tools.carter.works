@@ -4,7 +4,9 @@ Standalone HTML tools for <https://tools.carter.works>.
 
 The repo is a pnpm workspace. Every tool is an independent package under
 `packages/`, with its own `package.json`, build script, and dependencies. Static
-tools pull runtime dependencies from CDNs with browser ES modules.
+tools bundle their browser dependencies from pinned pnpm packages with esbuild.
+Packages that need a prebuilt browser asset can map it in `staticAssets` in
+their `package.json`; the build copies it and the dev server serves it locally.
 
 | Package                            | URL                           |
 | ---------------------------------- | ----------------------------- |

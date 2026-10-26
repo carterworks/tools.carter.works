@@ -3,6 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "rm -rf dist && cp -R public dist"
+    "build": "node ../../scripts/build-static.mjs"
+  },
+  "dependencies": {
+    "elkjs": "0.11.0"
+  },
+  "staticAssets": {
+    "elk.bundled.js": "elkjs/lib/elk.bundled.js"
   }
 }

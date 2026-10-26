@@ -28,6 +28,34 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/claude-code-buddy-creator: {}
+
+  packages/discord-text-image-worker: {}
+
+  packages/gamebook-viewer: {}
+
+  packages/halftone-painting: {}
+
+  packages/home: {}
+
+  packages/site:
+    dependencies:
+      '@tools/claude-code-buddy-creator':
+        specifier: workspace:*
+        version: link:../claude-code-buddy-creator
+      '@tools/discord-text-image-worker':
+        specifier: workspace:*
+        version: link:../discord-text-image-worker
+      '@tools/gamebook-viewer':
+        specifier: workspace:*
+        version: link:../gamebook-viewer
+      '@tools/halftone-painting':
+        specifier: workspace:*
+        version: link:../halftone-painting
+      '@tools/home':
+        specifier: workspace:*
+        version: link:../home
+
 packages:
 
   '@alchemy.run/cloudflare-runtime@2.0.0-beta.81':

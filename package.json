@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "alchemy dev",
-    "build": "rm -rf dist && cp -R public dist",
+    "build": "pnpm --recursive run build",
     "deploy": "alchemy deploy",
     "check": "tsc --noEmit"
   },

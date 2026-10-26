@@ -1,0 +1,16 @@
+{
+  "name": "@tools/site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@tools/claude-code-buddy-creator": "workspace:*",
+    "@tools/discord-text-image-worker": "workspace:*",
+    "@tools/gamebook-viewer": "workspace:*",
+    "@tools/halftone-painting": "workspace:*",
+    "@tools/home": "workspace:*"
+  }
+}

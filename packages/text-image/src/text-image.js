@@ -1,13 +1,6 @@
 // @ts-check
 
-import wasm, { initSync, Renderer } from "takumi-js/wasm";
 import { container, googleFont, text } from "takumi-js/helpers";
-
-// Load the WASM backend explicitly because takumi-js's auto-loader emits a
-// bare dynamic import that Cloudflare Workers cannot resolve.
-initSync({ module: wasm });
-
-const renderer = new Renderer({ loadDefaultFonts: false });
 
 /** @typedef {"left" | "center" | "right"} Alignment */
 /**
@@ -27,6 +20,14 @@ const renderer = new Renderer({ loadDefaultFonts: false });
  * @property {string} family
  * @property {import("takumi-js").FontLoader[]} fonts
  */
+/**
+ * @typedef {object} TextImageCache
+ * @property {(request: Request) => Promise<Response | undefined>} match
+ * @property {(request: Request, response: Response) => Promise<void>} put
+ */
+/**
+ * @typedef {(tree: import("takumi-js").Node, options: { width: number, height: number, fonts: import("takumi-js").FontLoader[] }) => Uint8Array | Promise<Uint8Array>} TextImageRender
+ */
 
 const CACHE_VERSION = "v4";
 const MAX_TEXT_LENGTH = 180;
@@ -35,50 +36,44 @@ const DEFAULT_FONT = "Inter";
 const ALIGNMENTS = new Set(["left", "center", "right"]);
 
 /**
- * @param {Request} request
- * @returns {Promise<Response>}
+ * @param {{ cache: TextImageCache, render: TextImageRender }} dependencies
+ * @returns {(request: Request) => Promise<Response>}
  */
-export async function textImage(request) {
-  try {
-    const params = normalizeParams(new URL(request.url).searchParams);
-    const defaultCache = cloudflareDefaultCache();
-    const cacheRequest = new Request(normalizedCacheUrl(request.url, params), request);
-    const cached = await defaultCache.match(cacheRequest);
+export function createTextImage({ cache, render }) {
+  return async function textImage(request) {
+    try {
+      const params = normalizeParams(new URL(request.url).searchParams);
+      const cacheRequest = new Request(normalizedCacheUrl(request.url, params), request);
+      const cached = await cache.match(cacheRequest);
 
-    if (cached) {
-      return cached;
+      if (cached) {
+        return cached;
+      }
+
+      const loadedFont = await loadFont(params.font, params.text);
+      const png = await render(renderTree({ ...params, font: loadedFont.family }), {
+        width: params.w,
+        height: params.h,
+        fonts: loadedFont.fonts,
+      });
+      const response = new Response(new Uint8Array(png).buffer, {
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": "public, max-age=31536000, immutable",
+        },
+      });
+
+      await cache.put(cacheRequest, response.clone());
+      return response;
+    } catch (error) {
+      if (error instanceof Response) {
+        return error;
+      }
+
+      console.error(error);
+      return jsonError("render_failed", 500);
     }
-
-    const loadedFont = await loadFont(params.font, params.text);
-    await renderer.loadFonts(loadedFont.fonts);
-    const png = renderer.render(renderTree({ ...params, font: loadedFont.family }), {
-      width: params.w,
-      height: params.h,
-    });
-    const response = new Response(new Uint8Array(png).buffer, {
-      headers: {
-        "Content-Type": "image/png",
-        "Cache-Control": "public, max-age=31536000, immutable",
-      },
-    });
-
-    await defaultCache.put(cacheRequest, response.clone());
-    return response;
-  } catch (error) {
-    if (error instanceof Response) {
-      return error;
-    }
-
-    console.error(error);
-    return jsonError("render_failed", 500);
-  }
-}
-
-/**
- * @returns {Cache}
- */
-function cloudflareDefaultCache() {
-  return /** @type {CacheStorage & { default: Cache }} */ (caches).default;
+  };
 }
 
 /**

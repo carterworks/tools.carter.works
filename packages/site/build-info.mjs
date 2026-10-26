@@ -18,31 +18,61 @@ function escapeHtml(value) {
 
 /**
  * @param {string} root
- * @returns {{ hash: string, message: string, date: string } | undefined}
+ * @param {string} fullHash
+ * @returns {string | undefined}
  */
-export function getBuildInfo(root) {
+function getCommitUrl(root, fullHash) {
+  const server = process.env.GITHUB_SERVER_URL?.replace(/\/+$/, "");
+  const repository = process.env.GITHUB_REPOSITORY;
+  if (server && repository) return `${server}/${repository}/commit/${fullHash}`;
+
   try {
-    const output = execFileSync("git", ["log", "-1", "--format=%h%n%s%n%cs"], {
+    const remote = execFileSync("git", ["remote", "get-url", "origin"], {
       cwd: root,
       encoding: "utf8",
     }).trim();
-    const [hash, message, date] = output.split("\n").map((line) => line.trim());
+    const match = remote
+      .replace(/\/+$/, "")
+      .match(/github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?$/i);
 
-    return hash && message && date ? { hash, message, date } : undefined;
+    return match ? `https://github.com/${match[1]}/${match[2]}/commit/${fullHash}` : undefined;
   } catch {
     return undefined;
   }
 }
 
 /**
- * @param {{ hash: string, message: string, date: string } | undefined} info
+ * @param {string} root
+ * @returns {{ hash: string, message: string, date: string, url?: string } | undefined}
+ */
+export function getBuildInfo(root) {
+  try {
+    const output = execFileSync("git", ["log", "-1", "--format=%H%n%h%n%s%n%cs"], {
+      cwd: root,
+      encoding: "utf8",
+    }).trim();
+    const [fullHash, hash, message, date] = output.split("\n").map((line) => line.trim());
+
+    return fullHash && hash && message && date
+      ? { hash, message, date, url: getCommitUrl(root, fullHash) }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * @param {{ hash: string, message: string, date: string, url?: string } | undefined} info
  * @returns {string}
  */
 export function renderBuildInfo(info) {
   if (!info) return "";
 
+  const hash = info.url
+    ? `<a href="${escapeHtml(info.url)}"><code>${escapeHtml(info.hash)}</code></a>`
+    : `<code>${escapeHtml(info.hash)}</code>`;
+
   return `<footer class="build-info">
-  <p>Latest commit <code>${escapeHtml(info.hash)}</code> on <time datetime="${escapeHtml(info.date)}">${escapeHtml(info.date)}</time></p>
-  <p>${escapeHtml(info.message)}</p>
+  <p>${hash} · ${escapeHtml(info.message)} · <time datetime="${escapeHtml(info.date)}">${escapeHtml(info.date)}</time></p>
 </footer>`;
 }

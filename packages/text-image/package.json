@@ -7,6 +7,6 @@
     "build": "rm -rf dist && cp -R src dist && node --check dist/worker.js && node --check dist/text-image.js"
   },
   "dependencies": {
-    "takumi-js": "^1.8.7"
+    "takumi-js": "1.8.7"
   }
 }

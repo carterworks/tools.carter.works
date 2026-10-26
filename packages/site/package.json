@@ -16,6 +16,7 @@
     "@tools/text-image": "workspace:*"
   },
   "devDependencies": {
-    "takumi-js": "^1.8.7"
+    "esbuild": "0.28.2",
+    "takumi-js": "1.8.7"
   }
 }

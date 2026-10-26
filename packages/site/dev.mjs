@@ -4,6 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import { extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { render } from "takumi-js";
+import { getBuildInfo, renderBuildInfo } from "./build-info.mjs";
 import { sites } from "./routes.mjs";
 
 const root = resolve(fileURLToPath(new URL("../..", import.meta.url)));
@@ -123,6 +124,9 @@ async function sendStatic(request, response, url) {
 
   if (contentType.startsWith("text/html")) {
     let body = await readFile(filePath, "utf8");
+    if (route.name === "home") {
+      body = body.replace("<!-- build-info -->", renderBuildInfo(getBuildInfo(root)));
+    }
     body = body.includes("</body>") ? body.replace("</body>", `${reloadScript}</body>`) : body + reloadScript;
     response.end(body);
     return;

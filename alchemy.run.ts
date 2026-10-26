@@ -19,7 +19,7 @@ export default Alchemy.Stack(
       outdir: "dist",
       // The only dynamic route: `/text` renders a PNG, everything else is a
       // static file served by the `ASSETS` binding.
-      main: "./src/worker.js",
+      main: "./packages/text-image/dist/worker.js",
     });
 
     if (stage === "prod") {

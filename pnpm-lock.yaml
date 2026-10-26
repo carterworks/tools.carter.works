@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      takumi-js:
-        specifier: ^1.8.7
-        version: 1.8.7
     devDependencies:
       '@effect/platform-node':
         specifier: 4.0.3
@@ -55,6 +51,15 @@ importers:
       '@tools/home':
         specifier: workspace:*
         version: link:../home
+      '@tools/text-image':
+        specifier: workspace:*
+        version: link:../text-image
+
+  packages/text-image:
+    dependencies:
+      takumi-js:
+        specifier: ^1.8.7
+        version: 1.8.7
 
 packages:
 

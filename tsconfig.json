@@ -16,5 +16,5 @@
     "strict": true
   },
   "exclude": ["dist", "node_modules"],
-  "include": ["alchemy.run.ts", "src/**/*"]
+  "include": ["alchemy.run.ts", "packages/text-image/src/**/*"]
 }

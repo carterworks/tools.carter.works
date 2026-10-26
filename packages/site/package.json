@@ -11,6 +11,7 @@
     "@tools/discord-text-image-worker": "workspace:*",
     "@tools/gamebook-viewer": "workspace:*",
     "@tools/halftone-painting": "workspace:*",
-    "@tools/home": "workspace:*"
+    "@tools/home": "workspace:*",
+    "@tools/text-image": "workspace:*"
   }
 }

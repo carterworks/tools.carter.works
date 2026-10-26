@@ -1,17 +1,10 @@
 import { cp, mkdir, readdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { sites } from "./routes.mjs";
 
 const root = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const dist = join(root, "dist");
-
-const sites = [
-  ["home", ""],
-  ["claude-code-buddy-creator", "claude-code-buddy-creator"],
-  ["discord-text-image-worker", "discord-text-image-worker"],
-  ["gamebook-viewer", "gamebook-viewer"],
-  ["halftone-painting", "halftone-painting"],
-];
 
 await rm(dist, { recursive: true, force: true });
 

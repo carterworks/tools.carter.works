@@ -13,7 +13,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "alchemy dev",
+    "dev": "pnpm --filter @tools/site dev",
     "build": "pnpm --recursive run build",
     "deploy": "alchemy deploy",
     "check": "tsc --noEmit"

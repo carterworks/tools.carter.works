@@ -23,12 +23,17 @@ each package's `dist/` into the repository's `dist/` at the URLs above.
 ## Commands
 
 - `pnpm install`
-- `pnpm dev` — run the Worker and assets locally with `alchemy dev`
+- `pnpm dev` — start the local hot-reloading server at <http://localhost:3000>
+- `pnpm -r run dev` — start the same server from a recursive workspace command
 - `pnpm check` — typecheck with `tsc --noEmit`
 - `pnpm build` — run `pnpm --recursive run build`, which builds every package
   and assembles the deployable `dist/`
 - `pnpm --filter @tools/gamebook-viewer build` — build one package
 - `pnpm deploy`
+
+The dev server serves each static package from its `public/` directory and
+renders `/text` with the native Takumi renderer. It watches those sources and
+reloads the browser after changes. Set `PORT` to use another port.
 
 To add a tool, create a package under `packages/`, add it to the dependencies
 and route map in `packages/site`, then run `pnpm install`.

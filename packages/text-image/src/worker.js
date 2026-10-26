@@ -1,6 +1,21 @@
 // @ts-check
 
-import { textImage } from "./text-image.js";
+import wasm, { initSync, Renderer } from "takumi-js/wasm";
+import { createTextImage } from "./text-image.js";
+
+// Load the WASM backend explicitly because takumi-js's auto-loader emits a
+// bare dynamic import that Cloudflare Workers cannot resolve.
+initSync({ module: wasm });
+
+const renderer = new Renderer({ loadDefaultFonts: false });
+
+const textImage = createTextImage({
+  cache: /** @type {CacheStorage & { default: Cache }} */ (caches).default,
+  async render(tree, { width, height, fonts }) {
+    await renderer.loadFonts(fonts);
+    return renderer.render(tree, { width, height });
+  },
+});
 
 /**
  * The asset layer's binding to the built `dist/` directory.

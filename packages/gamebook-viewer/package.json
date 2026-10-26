@@ -1,0 +1,8 @@
+{
+  "name": "@tools/gamebook-viewer",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "rm -rf dist && cp -R public dist"
+  }
+}

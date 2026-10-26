@@ -3,7 +3,7 @@
 import { textImage } from "./text-image.js";
 
 /**
- * The asset layer's binding to the built `public/` directory.
+ * The asset layer's binding to the built `dist/` directory.
  *
  * @typedef {object} Env
  * @property {{ fetch(request: Request): Promise<Response> }} ASSETS

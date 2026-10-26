@@ -2,15 +2,36 @@
 
 Standalone HTML tools for <https://tools.carter.works>.
 
-Each tool lives in its own `public/<tool>/index.html` file and pulls runtime dependencies from CDNs with browser ES modules. `GET /text` renders a PNG from query parameters; it is served by a Worker (`src/worker.js`), not a static file.
+The repo is a pnpm workspace. Every tool is an independent package under
+`packages/`, with its own `package.json`, build script, and dependencies. Static
+tools pull runtime dependencies from CDNs with browser ES modules.
+
+| Package                            | URL                           |
+| ---------------------------------- | ----------------------------- |
+| `@tools/home`                      | `/`                           |
+| `@tools/claude-code-buddy-creator` | `/claude-code-buddy-creator/` |
+| `@tools/discord-text-image-worker` | `/discord-text-image-worker/` |
+| `@tools/gamebook-viewer`           | `/gamebook-viewer/`           |
+| `@tools/halftone-painting`         | `/halftone-painting/`         |
+| `@tools/text-image`                | `/text`                       |
+
+`@tools/site` depends on the tool packages, so pnpm builds it last. It copies
+each package's `dist/` into the repository's `dist/` at the URLs above.
+`GET /text` renders a PNG from query parameters; it is served by a Worker
+(`packages/text-image/dist/worker.js`), not a static file.
 
 ## Commands
 
 - `pnpm install`
 - `pnpm dev` — run the Worker and assets locally with `alchemy dev`
 - `pnpm check` — typecheck with `tsc --noEmit`
-- `pnpm build` — copy `public/` to `dist/`
+- `pnpm build` — run `pnpm --recursive run build`, which builds every package
+  and assembles the deployable `dist/`
+- `pnpm --filter @tools/gamebook-viewer build` — build one package
 - `pnpm deploy`
+
+To add a tool, create a package under `packages/`, add it to the dependencies
+and route map in `packages/site`, then run `pnpm install`.
 
 ## Deployment
 

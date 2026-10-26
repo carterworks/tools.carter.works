@@ -2,13 +2,19 @@
   "name": "tools.carter.works",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@11.8.0",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": ">=12.15.0 <13.0.0",
+      "onFail": "download"
+    }
+  },
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "dev": "alchemy dev",
-    "build": "rm -rf dist && cp -R public dist",
+    "build": "pnpm --recursive run build",
     "deploy": "alchemy deploy",
     "check": "tsc --noEmit"
   },
@@ -18,8 +24,5 @@
     "alchemy": "2.0.0-beta.81",
     "effect": "4.0.3",
     "typescript": "6.0.3"
-  },
-  "dependencies": {
-    "takumi-js": "^1.8.7"
   }
 }
